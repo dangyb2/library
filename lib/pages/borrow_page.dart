@@ -365,10 +365,19 @@ class _BorrowPageState extends State<BorrowPage>
         AppTable<BorrowSummaryView>(
           rows: _filtered,
           emptyMessage: 'Không có phiếu mượn nào',
+          cellValue: (row, key) => switch (key) {
+            'bookTitle'  => row.bookTitle,
+            'readerName' => row.readerName,
+            'borrowDate' => row.borrowDate.millisecondsSinceEpoch,
+            'dueDate'    => row.dueDate.millisecondsSinceEpoch,
+            _            => '',
+          },
           columns: [
             AppTableColumn(
               label: 'Tên Sách',
               flex: 2,
+              sortable: true,
+              sortKey: 'bookTitle',
               builder: (row) => Text(
                 row.bookTitle,
                 style: const TextStyle(
@@ -381,6 +390,8 @@ class _BorrowPageState extends State<BorrowPage>
             AppTableColumn(
               label: 'Tên độc giả',
               flex: 2,
+              sortable: true,
+              sortKey: 'readerName',
               builder: (row) => Text(
                 row.readerName,
                 style: const TextStyle(
@@ -390,6 +401,8 @@ class _BorrowPageState extends State<BorrowPage>
             AppTableColumn(
               label: 'Ngày mượn',
               flex: 2,
+              sortable: true,
+              sortKey: 'borrowDate',
               builder: (row) => Text(
                 _dateFormat.format(row.borrowDate),
                 style: const TextStyle(
@@ -399,6 +412,8 @@ class _BorrowPageState extends State<BorrowPage>
             AppTableColumn(
               label: 'Hạn trả',
               flex: 2,
+              sortable: true,
+              sortKey: 'dueDate',
               builder: (row) {
                 final overdue = row.status == BorrowStatus.OVERDUE;
                 return Row(
@@ -1031,7 +1046,7 @@ class _BorrowPageState extends State<BorrowPage>
             }
           },
         ),
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1731,6 +1746,8 @@ class _PreviewRow extends StatelessWidget {
     );
   }
 }
+
+
 
 
 class _ToggleOption extends StatefulWidget {

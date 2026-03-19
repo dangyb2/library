@@ -219,6 +219,8 @@ class _BooksPageState extends State<BooksPage> {
         AppTableColumn(
           label: 'Tiêu đề / Tác giả',
           flex: 3,
+          sortable: true,
+          sortKey: 'title',
           builder: (b) => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -265,6 +267,8 @@ class _BooksPageState extends State<BooksPage> {
         AppTableColumn(
           label: 'Năm',
           flex: 1,
+          sortable: true,
+          sortKey: 'year',
           builder: (b) => Text('${b.publicationYear}',
               style: const TextStyle(
                   fontSize: 13, color: Color(0xFF6B7280))),
@@ -272,6 +276,8 @@ class _BooksPageState extends State<BooksPage> {
         AppTableColumn(
           label: 'Tồn kho',
           flex: 1,
+          sortable: true,
+          sortKey: 'stock',
           builder: (b) => RichText(
             text: TextSpan(children: [
               TextSpan(
@@ -477,6 +483,12 @@ class _BooksPageState extends State<BooksPage> {
           AppTable<BookSummary>(
             rows: _filtered,
             columns: _columns,
+            cellValue: (b, key) => switch (key) {
+              'title' => b.title,
+              'year'  => b.publicationYear,
+              'stock' => b.availableStock,
+              _       => '',
+            },
             emptyMessage: _searchText.isNotEmpty
                 ? 'Không tìm thấy sách phù hợp với "$_searchText"'
                 : 'Chưa có sách nào trong thư viện',

@@ -10,11 +10,18 @@ class AppTableColumn<T> {
   final double? fixedWidth;
   final Widget Function(T row) builder;
 
+  /// Nếu true, header cột này có thể bấm để sắp xếp.
+  /// [sortKey] là key dùng để so sánh — nếu null thì dùng [label].
+  final bool sortable;
+  final String? sortKey;
+
   const AppTableColumn({
     required this.label,
     required this.builder,
     this.flex = 1,
     this.fixedWidth,
+    this.sortable  = false,
+    this.sortKey,
   });
 }
 
@@ -28,12 +35,18 @@ class AppTable<T> extends StatefulWidget {
   final String? emptyMessage;
   final EdgeInsets padding;
 
+  /// Optional: external comparator dùng khi cột sortable được bấm.
+  /// Nhận (row, sortKey) → Comparable để so sánh.
+  /// Nếu null, sort sẽ không hoạt động dù [sortable] = true.
+  final Comparable Function(T row, String sortKey)? cellValue;
+
   const AppTable({
     super.key,
     required this.rows,
     required this.columns,
     this.emptyMessage = 'Không có dữ liệu',
     this.padding = const EdgeInsets.all(0),
+    this.cellValue,
   });
 
   @override
@@ -41,8 +54,34 @@ class AppTable<T> extends StatefulWidget {
 }
 
 class _AppTableState<T> extends State<AppTable<T>> {
-  // ✨ Track index row đang hover ở STATE của table, không phải từng row
-  int _hoveredIndex = -1;
+  int  _hoveredIndex = -1;
+  String? _sortKey;
+  bool    _sortAsc = true;
+
+  List<T> get _sortedRows {
+    if (_sortKey == null || widget.cellValue == null) return widget.rows;
+    final list = List<T>.from(widget.rows);
+    list.sort((a, b) {
+      final va = widget.cellValue!(a, _sortKey!);
+      final vb = widget.cellValue!(b, _sortKey!);
+      final cmp = va.compareTo(vb);
+      return _sortAsc ? cmp : -cmp;
+    });
+    return list;
+  }
+
+  void _onHeaderTap(AppTableColumn<T> col) {
+    if (!col.sortable || widget.cellValue == null) return;
+    final key = col.sortKey ?? col.label;
+    setState(() {
+      if (_sortKey == key) {
+        _sortAsc = !_sortAsc;
+      } else {
+        _sortKey = key;
+        _sortAsc = true;
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +100,6 @@ class _AppTableState<T> extends State<AppTable<T>> {
             ),
           ],
         ),
-        // ✨ ClipRRect để border radius không bị overflow khi hover
         child: ClipRRect(
           borderRadius: BorderRadius.circular(16),
           child: Column(
@@ -85,15 +123,54 @@ class _AppTableState<T> extends State<AppTable<T>> {
       color: const Color(0xFFF9FAFB),
       child: Row(
         children: widget.columns.map((col) {
-          final cell = Text(
-            col.label.toUpperCase(),
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF9CA3AF),
-              letterSpacing: 0.5,
-            ),
+          final key      = col.sortKey ?? col.label;
+          final isActive = col.sortable && _sortKey == key;
+          final canSort  = col.sortable && widget.cellValue != null;
+
+          Widget cell = Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                col.label.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: isActive
+                      ? const Color(0xFF2563EB)
+                      : const Color(0xFF9CA3AF),
+                  letterSpacing: 0.5,
+                ),
+              ),
+              if (canSort) ...[
+                const SizedBox(width: 4),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 150),
+                  child: Icon(
+                    isActive
+                        ? (_sortAsc
+                            ? Icons.arrow_upward_rounded
+                            : Icons.arrow_downward_rounded)
+                        : Icons.unfold_more_rounded,
+                    key: ValueKey('$key-$isActive-$_sortAsc'),
+                    size: 13,
+                    color: isActive
+                        ? const Color(0xFF2563EB)
+                        : const Color(0xFFD1D5DB),
+                  ),
+                ),
+              ],
+            ],
           );
+
+          if (canSort) {
+            cell = MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () => _onHeaderTap(col),
+                child: cell,
+              ),
+            );
+          }
 
           if (col.fixedWidth != null) {
             return SizedBox(width: col.fixedWidth, child: cell);
@@ -107,13 +184,13 @@ class _AppTableState<T> extends State<AppTable<T>> {
   // ── ROWS ──────────────────────────────────────────────────────
 
   Widget _buildRows() {
+    final rows = _sortedRows;
     return Column(
-      children: List.generate(widget.rows.length, (index) {
+      children: List.generate(rows.length, (index) {
         final isFirst  = index == 0;
-        final isLast   = index == widget.rows.length - 1;
+        final isLast   = index == rows.length - 1;
         final isHover  = _hoveredIndex == index;
 
-        // ✨ Border radius chỉ ở row đầu/cuối
         BorderRadius? radius;
         if (isFirst && isLast) {
           radius = const BorderRadius.vertical(bottom: Radius.circular(16));
@@ -123,7 +200,6 @@ class _AppTableState<T> extends State<AppTable<T>> {
 
         return Column(
           children: [
-            // Divider trừ row đầu tiên
             if (!isFirst)
               const Divider(
                 height: 1,
@@ -131,8 +207,6 @@ class _AppTableState<T> extends State<AppTable<T>> {
                 indent: 20,
                 endIndent: 20,
               ),
-
-            // ✨ MouseRegion ở table level — set _hoveredIndex
             MouseRegion(
               onEnter: (_) => setState(() => _hoveredIndex = index),
               onExit:  (_) => setState(() => _hoveredIndex = -1),
@@ -144,7 +218,7 @@ class _AppTableState<T> extends State<AppTable<T>> {
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                 child: Row(
                   children: widget.columns.map((col) {
-                    final cell = col.builder(widget.rows[index]);
+                    final cell = col.builder(rows[index]);
                     if (col.fixedWidth != null) {
                       return SizedBox(width: col.fixedWidth, child: cell);
                     }
