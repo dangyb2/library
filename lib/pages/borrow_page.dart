@@ -27,14 +27,16 @@ class BorrowPage extends StatefulWidget {
 
 class _BorrowPageState extends State<BorrowPage>
     with TickerProviderStateMixin {
-  final BorrowService _service = BorrowService();
+  final BorrowService _service     = BorrowService();
+  final BookService  _bookService  = BookService();
   final _dateFormat = DateFormat('dd/MM/yyyy');
 
   // ── state ──────────────────────────────────
   List<BorrowSummaryView> _allBorrows = [];
   List<BorrowSummaryView> _filtered   = [];
   List<OverdueBorrowView> _overdues   = [];
-  bool _isLoading = true;
+  bool _isLoading    = true;
+  bool _isPayingFine = false;
   String _search  = '';
   BorrowStatus? _statusFilter;
 
@@ -102,8 +104,7 @@ class _BorrowPageState extends State<BorrowPage>
       _allBorrows.where((b) => b.status == BorrowStatus.LOST).length;
   int get _countCancelled =>
       _allBorrows.where((b) => b.status == BorrowStatus.CANCELLED).length;
-      
-    final BookService _bookService = BookService();
+
 
   // ── modal helpers ──────────────────────────
 
@@ -365,19 +366,10 @@ class _BorrowPageState extends State<BorrowPage>
         AppTable<BorrowSummaryView>(
           rows: _filtered,
           emptyMessage: 'Không có phiếu mượn nào',
-          cellValue: (row, key) => switch (key) {
-            'bookTitle'  => row.bookTitle,
-            'readerName' => row.readerName,
-            'borrowDate' => row.borrowDate.millisecondsSinceEpoch,
-            'dueDate'    => row.dueDate.millisecondsSinceEpoch,
-            _            => '',
-          },
           columns: [
             AppTableColumn(
               label: 'Tên Sách',
               flex: 2,
-              sortable: true,
-              sortKey: 'bookTitle',
               builder: (row) => Text(
                 row.bookTitle,
                 style: const TextStyle(
@@ -385,24 +377,22 @@ class _BorrowPageState extends State<BorrowPage>
                   fontWeight: FontWeight.w600,
                   color: Color(0xFF111827),
                 ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             AppTableColumn(
               label: 'Tên độc giả',
               flex: 2,
-              sortable: true,
-              sortKey: 'readerName',
               builder: (row) => Text(
                 row.readerName,
                 style: const TextStyle(
                     fontSize: 13, color: Color(0xFF6B7280)),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             AppTableColumn(
               label: 'Ngày mượn',
               flex: 2,
-              sortable: true,
-              sortKey: 'borrowDate',
               builder: (row) => Text(
                 _dateFormat.format(row.borrowDate),
                 style: const TextStyle(
@@ -412,8 +402,6 @@ class _BorrowPageState extends State<BorrowPage>
             AppTableColumn(
               label: 'Hạn trả',
               flex: 2,
-              sortable: true,
-              sortKey: 'dueDate',
               builder: (row) {
                 final overdue = row.status == BorrowStatus.OVERDUE;
                 return Row(
@@ -926,17 +914,36 @@ class _BorrowPageState extends State<BorrowPage>
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
-                child: Row(children: [
-                  Expanded(child: _LabelValue(
-                    label: 'Giá thuê',
-                    value: '${_fmtCurrency(d.price)} đ',
-                  )),
-                  Expanded(child: _LabelValue(
-                    label: 'Tiền phạt',
-                    value: '${_fmtCurrency(d.fine)} đ',
-                    valueColor: d.fine > 0
-                        ? const Color(0xFFDC2626) : null,
-                  )),
+                child: Column(children: [
+                  Row(children: [
+                    Expanded(child: _LabelValue(
+                      label: 'Giá thuê',
+                      value: '${_fmtCurrency(d.price)} đ',
+                    )),
+                    Expanded(child: _LabelValue(
+                      label: 'Tiền phạt',
+                      value: '${_fmtCurrency(d.fine)} đ',
+                      valueColor: d.fine > 0
+                          ? const Color(0xFFDC2626) : null,
+                    )),
+                    Expanded(child: _LabelValue(
+                      label: 'Thanh toán',
+                      valueWidget: _PaymentBadge(status: d.paymentStatus),
+                    )),
+                  ]),
+                  if (d.fine > 0 && d.paymentStatus == PaymentStatus.UNPAID) ...[
+                    const SizedBox(height: 12),
+                    const Divider(height: 1, color: Color(0xFFF3F4F6)),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: _PayFineButton(
+                        fine: d.fine,
+                        isLoading: _isPayingFine,
+                        onTap: () => _confirmPayFine(d),
+                      ),
+                    ),
+                  ],
                 ]),
               ),
             ],
@@ -959,6 +966,34 @@ class _BorrowPageState extends State<BorrowPage>
     if (v == 0) return '0';
     return v.toStringAsFixed(0).replaceAllMapped(
         RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
+  }
+
+  // ── Thanh toán tiền phạt ──────────────────
+
+  Future<void> _confirmPayFine(BorrowDetailsView d) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      barrierColor: const Color(0x80000000),
+      builder: (_) => _PayFineConfirmDialog(
+        borrowId:  d.borrowId,
+        bookTitle: d.bookTitle.isNotEmpty ? d.bookTitle : d.bookId,
+        fine:      d.fine,
+      ),
+    ) ?? false;
+    if (!confirm || !mounted) return;
+
+    setState(() => _isPayingFine = true);
+    final result = await _service.payFine(d.borrowId);
+    if (!mounted) return;
+    setState(() => _isPayingFine = false);
+
+    if (result.isSuccess) {
+      Navigator.of(context).pop();
+      await _loadData();
+      _toast('Thanh toán tiền phạt thành công!');
+    } else if (result.errorMessage != null) {
+      _toast(result.errorMessage!, error: true);
+    }
   }
 
   // ── 3. Trả sách ───────────────────────────
@@ -2831,6 +2866,233 @@ class _BdStockChip extends StatelessWidget {
               style: const TextStyle(
                   fontSize: 11, color: Color(0xFF9CA3AF))),
         ]),
+      ),
+    );
+  }
+}
+// ─────────────────────────────────────────────
+//  _PaymentBadge — trạng thái thanh toán
+// ─────────────────────────────────────────────
+
+class _PaymentBadge extends StatelessWidget {
+  const _PaymentBadge({required this.status});
+  final PaymentStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, fg, bg) = switch (status) {
+      PaymentStatus.PAID   => ('Đã thanh toán', const Color(0xFF16A34A), const Color(0xFFF0FDF4)),
+      PaymentStatus.UNPAID => ('Chưa thanh toán', const Color(0xFFDC2626), const Color(0xFFFEF2F2)),
+      PaymentStatus.NONE   => ('Không áp dụng', const Color(0xFF6B7280), const Color(0xFFF3F4F6)),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+      child: Text(label,
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: fg)),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+//  _PayFineButton — nút thanh toán trong card
+// ─────────────────────────────────────────────
+
+class _PayFineButton extends StatelessWidget {
+  const _PayFineButton({
+    required this.fine,
+    required this.onTap,
+    this.isLoading = false,
+  });
+  final double       fine;
+  final VoidCallback onTap;
+  final bool         isLoading;
+
+  String _fmt(double v) => v.toStringAsFixed(0).replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: isLoading ? null : onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 130),
+        height: 42,
+        decoration: BoxDecoration(
+          color: isLoading ? const Color(0xFFFECACA) : const Color(0xFFDC2626),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (isLoading)
+              const SizedBox(width: 16, height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+            else
+              const Icon(Icons.payment_rounded, size: 16, color: Colors.white),
+            const SizedBox(width: 8),
+            Text(
+              isLoading ? 'Đang xử lý...' : 'Thanh toán ${_fmt(fine)} đ',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+//  _PayFineConfirmDialog — xác nhận thanh toán
+// ─────────────────────────────────────────────
+
+class _PayFineConfirmDialog extends StatefulWidget {
+  const _PayFineConfirmDialog({
+    required this.borrowId,
+    required this.bookTitle,
+    required this.fine,
+  });
+  final String borrowId;
+  final String bookTitle;
+  final double fine;
+
+  @override
+  State<_PayFineConfirmDialog> createState() => _PayFineConfirmDialogState();
+}
+
+class _PayFineConfirmDialogState extends State<_PayFineConfirmDialog>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double>   _scale;
+  late final Animation<double>   _fade;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 200));
+    _scale = Tween<double>(begin: 0.92, end: 1.0).animate(
+        CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+
+  Future<void> _close([bool result = false]) async {
+    await _ctrl.reverse();
+    if (mounted) Navigator.pop(context, result);
+  }
+
+  String _fmt(double v) => v.toStringAsFixed(0).replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _fade,
+      child: ScaleTransition(
+        scale: _scale,
+        alignment: Alignment.center,
+        child: Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 60),
+          child: Container(
+            width: 400,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: const [BoxShadow(color: Color(0x20000000), blurRadius: 32, offset: Offset(0, 12))],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(28, 28, 28, 20),
+                  child: Column(children: [
+                    Container(
+                      width: 56, height: 56,
+                      decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(16)),
+                      child: const Icon(Icons.payment_rounded, size: 28, color: Color(0xFFDC2626)),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('Xác nhận thanh toán phạt',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF111827))),
+                    const SizedBox(height: 8),
+                    Text(widget.bookTitle,
+                        style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+                        textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFFECACA)),
+                      ),
+                      child: Column(children: [
+                        const Text('Số tiền phạt', style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
+                        const SizedBox(height: 4),
+                        Text('${_fmt(widget.fine)} đ',
+                            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: Color(0xFFDC2626))),
+                      ]),
+                    ),
+                  ]),
+                ),
+                const Divider(height: 1, color: Color(0xFFF3F4F6)),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(children: [
+                    Expanded(child: _ConfirmBtn(label: 'Huỷ', filled: false, onTap: () => _close(false))),
+                    const SizedBox(width: 10),
+                    Expanded(child: _ConfirmBtn(label: 'Xác nhận thanh toán', filled: true, onTap: () => _close(true))),
+                  ]),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── _ConfirmBtn ────────────────────────────────
+
+class _ConfirmBtn extends StatefulWidget {
+  const _ConfirmBtn({required this.label, required this.filled, required this.onTap});
+  final String label;
+  final bool   filled;
+  final VoidCallback onTap;
+
+  @override
+  State<_ConfirmBtn> createState() => _ConfirmBtnState();
+}
+
+class _ConfirmBtnState extends State<_ConfirmBtn> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg     = widget.filled ? (_pressed ? const Color(0xFFB91C1C) : const Color(0xFFDC2626)) : (_pressed ? const Color(0xFFF3F4F6) : Colors.white);
+    final border = widget.filled ? Colors.transparent : const Color(0xFFE5E7EB);
+    final text   = widget.filled ? Colors.white : const Color(0xFF374151);
+    return GestureDetector(
+      onTapDown:   (_) => setState(() => _pressed = true),
+      onTapUp:     (_) { setState(() => _pressed = false); widget.onTap(); },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 100),
+        height: 42,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: border),
+        ),
+        child: Text(widget.label,
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: text)),
       ),
     );
   }

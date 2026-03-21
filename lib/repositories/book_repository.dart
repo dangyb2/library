@@ -80,13 +80,17 @@ class BookRepository {
 
   // ── PATCH /books/{id}/stock/remove-inventory ─────────────
 
-  Future<void> removeInventory(String id, int amount,
+  Future<TotalStockDecreaseView> removeInventory(String id, int amount,
       {String? reason}) async {
     final body = <String, dynamic>{'amount': amount};
     if (reason != null && reason.trim().isNotEmpty) {
       body['reason'] = reason.trim();
     }
-    await _client.patch('/books/$id/stock/remove-inventory', body: body);
+    final res = await _client.patch(
+      '/books/$id/stock/remove-inventory',
+      body: body,
+    );
+    return TotalStockDecreaseView.fromJson(res.asMap());
   }
 
   // ── PATCH /books/{id}/stock/checkout ─────────────────────

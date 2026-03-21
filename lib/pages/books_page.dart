@@ -546,15 +546,46 @@ class BookGenres {
 
   /// Normalize genre string từ API về key chuẩn trong [all].
   static String? normalize(String raw) {
+    String _strip(String s) =>
+        s.replaceAll(RegExp(r'[^a-z0-9 ]'), ' ')
+         .replaceAll(RegExp(r' +'), ' ')
+         .trim();
+
     final reverseMap = <String, String>{
+      // key → key
       ...{for (final e in all.entries) e.key: e.key},
+      // display value lowercase (e.g. "self help" → "self_help")
       ...{for (final e in all.entries) e.value.toLowerCase(): e.key},
+      // key với _ → space
+      ...{for (final e in all.entries) e.key.replaceAll('_', ' '): e.key},
+      // display bỏ hyphen ("non-fiction" → "nonfiction")
       ...{for (final e in all.entries)
-        e.key.replaceAll('_', ' '): e.key},
+        e.value.toLowerCase().replaceAll('-', ''): e.key},
+      // display stripped ký tự đặc biệt ("comics & graphic novels" → "comics  graphic novels")
+      ...{for (final e in all.entries) _strip(e.value.toLowerCase()): e.key},
+      // stripped + underscore
+      ...{for (final e in all.entries)
+        _strip(e.value.toLowerCase()).replaceAll(' ', '_'): e.key},
     };
+
     final n = raw.trim().toLowerCase();
-    return reverseMap[n] ??
-        reverseMap[n.replaceAll(' ', '_')];
+    if (reverseMap.containsKey(n)) return reverseMap[n];
+
+    // Thử đổi hyphen → space / underscore / bỏ luôn
+    final noHyphenSpace = n.replaceAll('-', ' ');
+    final noHyphenUnder = n.replaceAll('-', '_');
+    final noHyphenGlue  = n.replaceAll('-', '');
+
+    if (reverseMap.containsKey(noHyphenSpace)) return reverseMap[noHyphenSpace];
+    if (reverseMap.containsKey(noHyphenUnder))  return reverseMap[noHyphenUnder];
+    if (reverseMap.containsKey(noHyphenGlue))   return reverseMap[noHyphenGlue];
+
+    // Thử thêm: bỏ ký tự đặc biệt & , ; để match "comics & graphic novels"
+    final stripped = n.replaceAll(RegExp(r'[^a-z0-9 ]'), ' ')
+                      .replaceAll(RegExp(r' +'), ' ')
+                      .trim();
+    return reverseMap[stripped] ??
+        reverseMap[stripped.replaceAll(' ', '_')];
   }
 }
 
@@ -671,14 +702,15 @@ class _GenreSelectorSection extends StatefulWidget {
 
 class _GenreSelectorSectionState
     extends State<_GenreSelectorSection> {
-  List<String> _predictedGenres = [];
+  // Giữ cả key chuẩn + confidence để hiển thị %
+  List<({String key, double confidence})> _predictions = [];
   bool _isPredicting = false;
 
   Future<void> _predictGenre() async {
     if (widget.titleCtrl.text.trim().isEmpty &&
         widget.descCtrl.text.trim().isEmpty) return;
 
-    setState(() { _isPredicting = true; _predictedGenres = []; });
+    setState(() { _isPredicting = true; _predictions = []; });
 
     final result = await widget.service.predictGenre(
       title:       widget.titleCtrl.text.trim(),
@@ -689,16 +721,19 @@ class _GenreSelectorSectionState
     setState(() {
       _isPredicting = false;
       if (result case Success(:final data)) {
-        _predictedGenres = {
-          ...data.predictedGenres,
-          ...data.suggestedGenres,
-        }
-            .map((g) => BookGenres.normalize(g) ?? '')
-            .where((g) => g.isNotEmpty)
-            .where((g) => BookGenres.all.containsKey(g))
-            .where((g) => !widget.selectedGenres.contains(g))
-            .toSet()
-            .toList();
+        // Normalize key, loại trùng đã chọn, sắp xếp confidence giảm dần
+        final seen = <String>{};
+        _predictions = data.predictions
+            .map((p) {
+              final key = BookGenres.normalize(p.genre) ?? '';
+              return (key: key, confidence: p.confidence);
+            })
+            .where((p) => p.key.isNotEmpty)
+            .where((p) => BookGenres.all.containsKey(p.key))
+            .where((p) => !widget.selectedGenres.contains(p.key))
+            .where((p) => seen.add(p.key)) // loại trùng key
+            .toList()
+          ..sort((a, b) => b.confidence.compareTo(a.confidence));
       }
     });
   }
@@ -712,16 +747,6 @@ class _GenreSelectorSectionState
     }
     widget.onChanged(updated);
     widget.onErrorClear?.call();
-  }
-
-  void _addFromAI(String key) {
-    setState(() => _predictedGenres.remove(key));
-    if (!widget.selectedGenres.contains(key)) {
-      final updated = List<String>.from(widget.selectedGenres)
-        ..add(key);
-      widget.onChanged(updated);
-      widget.onErrorClear?.call();
-    }
   }
 
   @override
@@ -776,155 +801,144 @@ class _GenreSelectorSectionState
 
         const SizedBox(height: 10),
 
-        // AI suggestion banner
-        if (_predictedGenres.isNotEmpty)
-          AnimatedSize(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic,
-            child: Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFAF5FF),
-                borderRadius: BorderRadius.circular(12),
-                border:
-                    Border.all(color: const Color(0xFFE9D5FF)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [
-                    const Icon(Icons.auto_awesome_rounded,
-                        size: 13, color: Color(0xFF7C3AED)),
-                    const SizedBox(width: 5),
-                    const Text(
-                      'AI đề xuất — ấn để thêm vào lựa chọn',
-                      style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF7C3AED)),
+        // ── Các thể loại đã chọn ─────────────────────────
+        if (widget.selectedGenres.isNotEmpty) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFBFDBFE)),
+            ),
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: widget.selectedGenres.map((key) {
+                final label = BookGenres.all[key] ?? key;
+                return GestureDetector(
+                  onTap: () => _toggleGenre(key),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(8, 3, 6, 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2563EB),
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () =>
-                          setState(() => _predictedGenres = []),
-                      child: const Icon(Icons.close_rounded,
-                          size: 14,
-                          color: Color(0xFFA78BFA)),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(label,
+                            style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.white)),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.close_rounded,
+                            size: 11, color: Colors.white70),
+                      ],
                     ),
-                  ]),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: _predictedGenres.map((g) {
-                      final label =
-                          BookGenres.all[g] ?? g;
-                      final isSelected =
-                          widget.selectedGenres.contains(g);
-                      return GestureDetector(
-                        onTap: () => _addFromAI(g),
-                        child: AnimatedContainer(
-                          duration:
-                              const Duration(milliseconds: 130),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? const Color(0xFFEFF6FF)
-                                : const Color(0xFFEDE9FE),
-                            borderRadius:
-                                BorderRadius.circular(20),
-                            border: Border.all(
-                              color: isSelected
-                                  ? const Color(0xFF2563EB)
-                                  : const Color(0xFFC4B5FD),
-                              width: isSelected ? 1.5 : 1,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                isSelected
-                                    ? Icons.check_rounded
-                                    : Icons.add_rounded,
-                                size: 12,
-                                color: isSelected
-                                    ? const Color(0xFF2563EB)
-                                    : const Color(0xFF7C3AED),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(label,
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                      color: isSelected
-                                          ? const Color(0xFF2563EB)
-                                          : const Color(
-                                              0xFF6D28D9))),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
                   ),
-                ],
-              ),
+                );
+              }).toList(),
             ),
           ),
+          const SizedBox(height: 10),
+        ],
 
-        // Genre chips grid
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: BookGenres.all.entries.map((entry) {
-            final selected =
-                widget.selectedGenres.contains(entry.key);
-            return GestureDetector(
-              onTap: () => _toggleGenre(entry.key),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 130),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: selected
-                      ? const Color(0xFFEFF6FF)
-                      : const Color(0xFFF9FAFB),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: selected
-                        ? const Color(0xFF2563EB)
-                        : const Color(0xFFE5E7EB),
-                    width: selected ? 1.5 : 1,
+        // ── Genre chips grid ──────────────────────────────
+        // Khi có AI: sắp xếp theo confidence giảm dần + badge %
+        // Khi không có AI: alpha order
+        // Chỉ hiện thể loại chưa được chọn
+        Builder(builder: (_) {
+          // Build confidence map từ predictions
+          final confMap = <String, double>{
+            for (final p in _predictions) p.key: p.confidence,
+          };
+          final hasAI = _predictions.isNotEmpty;
+
+          // Lấy danh sách chưa chọn
+          final unselected = BookGenres.all.entries
+              .where((e) => !widget.selectedGenres.contains(e.key))
+              .toList();
+
+          // Sắp xếp: nếu có AI → confidence giảm dần, bằng nhau → alpha
+          if (hasAI) {
+            unselected.sort((a, b) {
+              final ca = confMap[a.key] ?? -1;
+              final cb = confMap[b.key] ?? -1;
+              if (cb != ca) return cb.compareTo(ca);
+              return a.value.compareTo(b.value);
+            });
+          }
+
+          return Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: unselected.map((entry) {
+              final conf = confMap[entry.key];
+              // Nếu AI đã chạy: genre không có trong predictions → 0%
+              final pct  = hasAI
+                  ? (conf != null ? (conf * 100).round() : 0)
+                  : (conf != null ? (conf * 100).round() : null);
+              return GestureDetector(
+                onTap: () => _toggleGenre(entry.key),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 130),
+                  padding: const EdgeInsets.fromLTRB(10, 5, 10, 5),
+                  decoration: BoxDecoration(
+                    // Genre có AI confidence cao → nền tím nhạt
+                    color: pct != null && pct > 0
+                        ? const Color(0xFFF5F3FF)
+                        : const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: pct != null && pct > 0
+                          ? const Color(0xFFDDD6FE)
+                          : const Color(0xFFE5E7EB),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(entry.value,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: pct != null && pct > 0
+                                ? FontWeight.w500
+                                : FontWeight.w400,
+                            color: pct != null && pct > 0
+                                ? const Color(0xFF6D28D9)
+                                : const Color(0xFF6B7280),
+                          )),
+                      if (pct != null) ...[
+                        const SizedBox(width: 5),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: pct > 0
+                                ? const Color(0xFF7C3AED).withOpacity(0.12)
+                                : const Color(0xFF9CA3AF).withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '$pct%',
+                            style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: pct > 0
+                                    ? const Color(0xFF7C3AED)
+                                    : const Color(0xFF9CA3AF)),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (selected) ...[
-                      const Icon(Icons.check_rounded,
-                          size: 12,
-                          color: Color(0xFF2563EB)),
-                      const SizedBox(width: 4),
-                    ],
-                    Text(entry.value,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: selected
-                              ? FontWeight.w600
-                              : FontWeight.w400,
-                          color: selected
-                              ? const Color(0xFF2563EB)
-                              : const Color(0xFF6B7280),
-                        )),
-                  ],
-                ),
-              ),
-            );
-          }).toList(),
-        ),
+              );
+            }).toList(),
+          );
+        }),
 
         // Genre error
         if (widget.submitError != null) ...[
@@ -2204,7 +2218,7 @@ class _StockUpdateModalState extends State<StockUpdateModal>
         case Success():
           await _animCtrl.reverse();
           if (mounted) Navigator.pop(context);
-        case Failure(:final message):
+        case Failure<TotalStockDecreaseView>(:final message):
           setState(() { _isLoading = false; _error = message; });
       }
     }
@@ -2536,7 +2550,7 @@ class _StockPreviewState extends State<_StockPreview> {
         int.tryParse(widget.amountCtrl.text.trim()) ?? 0;
     final newTotal = widget.mode == 'add'
         ? widget.current + amount
-        : (widget.current - amount).clamp(0, 9999);
+        : (widget.current - amount).clamp(0, 999999999);
 
     final isAdd = widget.mode == 'add';
 
@@ -2552,22 +2566,23 @@ class _StockPreviewState extends State<_StockPreview> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // Current
-          Column(children: [
-            Text('${widget.current}',
-                style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF374151))),
+          Flexible(child: Column(children: [
+            FittedBox(fit: BoxFit.scaleDown, child:
+              Text('${widget.current}',
+                  style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF374151)))),
             const Text('Hiện tại',
                 style: TextStyle(
                     fontSize: 11, color: Color(0xFF9CA3AF))),
-          ]),
+          ])),
 
-          const SizedBox(width: 16),
+          const SizedBox(width: 10),
 
           // Operator
           Container(
-            width: 28, height: 28,
+            width: 26, height: 26,
             decoration: BoxDecoration(
               color: isAdd
                   ? const Color(0xFFEFF6FF)
@@ -2576,30 +2591,31 @@ class _StockPreviewState extends State<_StockPreview> {
             ),
             child: Icon(
               isAdd ? Icons.add : Icons.remove,
-              size: 14,
+              size: 13,
               color: isAdd
                   ? const Color(0xFF2563EB)
                   : const Color(0xFFEF4444),
             ),
           ),
 
-          const SizedBox(width: 16),
+          const SizedBox(width: 10),
 
           // Amount
-          Column(children: [
-            Text('${amount > 0 ? amount : '?'}',
-                style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: isAdd
-                        ? const Color(0xFF2563EB)
-                        : const Color(0xFFEF4444))),
+          Flexible(child: Column(children: [
+            FittedBox(fit: BoxFit.scaleDown, child:
+              Text('${amount > 0 ? amount : '?'}',
+                  style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: isAdd
+                          ? const Color(0xFF2563EB)
+                          : const Color(0xFFEF4444)))),
             const Text('Số lượng',
                 style: TextStyle(
                     fontSize: 11, color: Color(0xFF9CA3AF))),
-          ]),
+          ])),
 
-          const SizedBox(width: 16),
+          const SizedBox(width: 10),
 
           // Equals
           const Text('=',
@@ -2608,19 +2624,20 @@ class _StockPreviewState extends State<_StockPreview> {
                   fontWeight: FontWeight.w600,
                   color: Color(0xFF9CA3AF))),
 
-          const SizedBox(width: 16),
+          const SizedBox(width: 10),
 
           // Result
-          Column(children: [
-            Text('$newTotal',
+          Flexible(child: Column(children: [
+            FittedBox(fit: BoxFit.scaleDown, child:
+              Text('$newTotal',
                 style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF111827))),
+                    color: Color(0xFF111827)))),
             const Text('Kết quả',
                 style: TextStyle(
                     fontSize: 11, color: Color(0xFF9CA3AF))),
-          ]),
+          ])),
         ],
       ),
     );

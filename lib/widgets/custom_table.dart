@@ -185,51 +185,57 @@ class _AppTableState<T> extends State<AppTable<T>> {
 
   Widget _buildRows() {
     final rows = _sortedRows;
-    return Column(
-      children: List.generate(rows.length, (index) {
-        final isFirst  = index == 0;
-        final isLast   = index == rows.length - 1;
-        final isHover  = _hoveredIndex == index;
+    // Bọc toàn bộ danh sách trong 1 MouseRegion duy nhất.
+    // Chỉ clear _hoveredIndex khi chuột rời khỏi bảng — không clear
+    // giữa các row để tránh nhấp nháy khi di chuột lên/xuống.
+    return MouseRegion(
+      onExit: (_) => setState(() => _hoveredIndex = -1),
+      child: Column(
+        children: List.generate(rows.length, (index) {
+          final isFirst = index == 0;
+          final isLast  = index == rows.length - 1;
+          final isHover = _hoveredIndex == index;
 
-        BorderRadius? radius;
-        if (isFirst && isLast) {
-          radius = const BorderRadius.vertical(bottom: Radius.circular(16));
-        } else if (isLast) {
-          radius = const BorderRadius.vertical(bottom: Radius.circular(16));
-        }
+          BorderRadius? radius;
+          if (isFirst && isLast) {
+            radius = const BorderRadius.vertical(bottom: Radius.circular(16));
+          } else if (isLast) {
+            radius = const BorderRadius.vertical(bottom: Radius.circular(16));
+          }
 
-        return Column(
-          children: [
-            if (!isFirst)
-              const Divider(
-                height: 1,
-                color: Color(0xFFF3F4F6),
-                indent: 20,
-                endIndent: 20,
-              ),
-            MouseRegion(
-              onEnter: (_) => setState(() => _hoveredIndex = index),
-              onExit:  (_) => setState(() => _hoveredIndex = -1),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: isHover ? const Color(0xFFF5F5F5) : Colors.transparent,
-                  borderRadius: radius,
+          return Column(
+            children: [
+              if (!isFirst)
+                const Divider(
+                  height: 1,
+                  color: Color(0xFFF3F4F6),
+                  indent: 20,
+                  endIndent: 20,
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                child: Row(
-                  children: widget.columns.map((col) {
-                    final cell = col.builder(rows[index]);
-                    if (col.fixedWidth != null) {
-                      return SizedBox(width: col.fixedWidth, child: cell);
-                    }
-                    return Expanded(flex: col.flex, child: cell);
-                  }).toList(),
+              MouseRegion(
+                // Chỉ set index khi vào row — KHÔNG onExit ở đây
+                onEnter: (_) => setState(() => _hoveredIndex = index),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isHover ? const Color(0xFFF5F5F5) : Colors.transparent,
+                    borderRadius: radius,
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                  child: Row(
+                    children: widget.columns.map((col) {
+                      final cell = col.builder(rows[index]);
+                      if (col.fixedWidth != null) {
+                        return SizedBox(width: col.fixedWidth, child: cell);
+                      }
+                      return Expanded(flex: col.flex, child: cell);
+                    }).toList(),
+                  ),
                 ),
               ),
-            ),
-          ],
-        );
-      }),
+            ],
+          );
+        }),
+      ),
     );
   }
 

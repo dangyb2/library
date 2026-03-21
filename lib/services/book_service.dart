@@ -145,11 +145,12 @@ class BookService {
     return _run(() => repository.addInventory(id, amount));
   }
 
-  Future<Result<void>> removeInventory(String id, int amount,
-      {String? reason}) {
+  Future<Result<TotalStockDecreaseView>> removeInventory(
+      String id, int amount, {String? reason}) {
     final err = _validateQuantity(amount);
     if (err != null) return Future.value(Failure(err));
-    return _run(() => repository.removeInventory(id, amount, reason: reason));
+    return _run(
+        () => repository.removeInventory(id, amount, reason: reason));
   }
 
   Future<Result<BookDetail>> checkoutBook(String id) async {

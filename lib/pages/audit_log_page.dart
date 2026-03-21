@@ -5,7 +5,7 @@ import '../models/audit_log.dart';
 import '../services/audit_log_service.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_filter.dart';
-import '../widgets/custom_table.dart' hide TableActions;
+import '../widgets/custom_table.dart' ;
 import '../widgets/search_bar.dart';
 import '../widgets/stat_card.dart';
 
@@ -969,4 +969,3 @@ class _EventTypeBadge extends StatelessWidget {
     );
   }
 }
-

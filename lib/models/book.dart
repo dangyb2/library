@@ -208,19 +208,95 @@ class GenrePredictionRequest {
       };
 }
 
-class GenrePredictionResponse {
-  const GenrePredictionResponse({
-    required this.predictedGenres,
-    required this.suggestedGenres,
+// Một dự đoán thể loại từ AI
+class Prediction {
+  const Prediction({
+    required this.genre,
+    required this.confidence,
+    required this.isMatch,
   });
 
-  final List<String> predictedGenres;
-  final List<String> suggestedGenres;
+  final String genre;
+  final double confidence;
+  final bool   isMatch;
 
-  factory GenrePredictionResponse.fromJson(Map<String, dynamic> j) =>
-      GenrePredictionResponse(
-        predictedGenres: _strings(j['predicted_genres']),
-        suggestedGenres: _strings(j['suggested_genres']),
+  factory Prediction.fromJson(Map<String, dynamic> j) => Prediction(
+        genre:      j['genre']      as String? ?? '',
+        confidence: (j['confidence'] as num?)?.toDouble() ?? 0.0,
+        isMatch:    j['is_match']   as bool?  ?? false,
+      );
+}
+
+class GenrePredictionResponse {
+  const GenrePredictionResponse({required this.predictions});
+
+  final List<Prediction> predictions;
+
+  /// Tất cả thể loại được dự đoán, sắp theo confidence giảm dần.
+  List<String> get allGenres => predictions
+      .map((p) => p.genre)
+      .where((g) => g.isNotEmpty)
+      .toList();
+
+  /// Thể loại khớp chính (is_match = true).
+  List<String> get predictedGenres => predictions
+      .where((p) => p.isMatch)
+      .map((p) => p.genre)
+      .toList();
+
+  /// Thể loại gợi ý thêm (is_match = false).
+  List<String> get suggestedGenres => predictions
+      .where((p) => !p.isMatch)
+      .map((p) => p.genre)
+      .toList();
+
+  factory GenrePredictionResponse.fromJson(Map<String, dynamic> j) {
+    final list = (j['predictions'] as List<dynamic>?)
+            ?.cast<Map<String, dynamic>>()
+            .map(Prediction.fromJson)
+            .toList() ??
+        [];
+    return GenrePredictionResponse(predictions: list);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  TotalStockDecreaseView  ←  PATCH /books/{id}/stock/remove-inventory
+// ─────────────────────────────────────────────────────────────
+
+class TotalStockDecreaseView {
+  const TotalStockDecreaseView({
+    required this.id,
+    required this.title,
+    required this.author,
+    required this.totalStock,
+    required this.availableStock,
+    required this.copiesRemoved,
+    required this.reason,
+    this.date,
+  });
+
+  final String   id;
+  final String   title;
+  final String   author;
+  final int      totalStock;
+  final int      availableStock;
+  final int      copiesRemoved;
+  final String   reason;
+  final DateTime? date;
+
+  factory TotalStockDecreaseView.fromJson(Map<String, dynamic> j) =>
+      TotalStockDecreaseView(
+        id:             j['id']             as String? ?? '',
+        title:          j['title']          as String? ?? '',
+        author:         j['author']         as String? ?? '',
+        totalStock:     _int(j['totalStock']),
+        availableStock: _int(j['availableStock']),
+        copiesRemoved:  _int(j['copiesRemoved']),
+        reason:         j['reason']         as String? ?? '',
+        date: j['date'] != null
+            ? DateTime.tryParse(j['date'] as String)
+            : null,
       );
 }
 
