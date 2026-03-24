@@ -1,0 +1,9 @@
+{
+  "properties": [
+    {
+      "name": "fastapi.predictor.url",
+      "type": "java.lang.String",
+      "description": "URL for the FastAPI genre prediction service."
+    }
+  ]
+}

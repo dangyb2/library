@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        .email-container {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            border: 1px solid #d1d8e0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .header {
+            background-color: #607d8b; /* Màu xanh xám trung tính */
+            color: #ffffff;
+            padding: 20px;
+            text-align: center;
+        }
+        .content {
+            padding: 30px;
+        }
+        .status-box {
+            background-color: #f8f9fa;
+            border-left: 5px solid #607d8b;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .book-title {
+            color: #2c3e50;
+            font-weight: bold;
+        }
+        .info-text {
+            color: #7f8c8d;
+            font-size: 0.95em;
+        }
+        .footer {
+            background-color: #f9f9f9;
+            padding: 15px;
+            text-align: center;
+            font-size: 0.8em;
+            color: #95a5a6;
+        }
+        .no-fee-tag {
+            display: inline-block;
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+<div class="email-container">
+    <div class="header">
+        <h2>Xác Nhận Hủy Đặt Sách</h2>
+    </div>
+
+    <div class="content">
+        <p>Chào <strong>{{readerName}}</strong>,</p>
+
+        <p>Chúng tôi gửi email này để xác nhận rằng yêu cầu đặt trước (reservation) của bạn cho cuốn sách sau đã được hủy:</p>
+
+        <div class="status-box">
+            <div class="book-title">"{{bookTitle}}"</div>
+            <div class="info-text">Ngày hủy: {{cancelDate}}</div>
+            <div class="no-fee-tag">Miễn phí hủy bỏ</div>
+        </div>
+
+        <p>Bạn sẽ <strong>không phải trả bất kỳ khoản phí nào</strong> cho việc hủy bỏ này. Cuốn sách hiện đã được đưa trở lại kệ sách sẵn có để phục vụ các độc giả khác.</p>
+
+        <p>Nếu bạn thực hiện việc hủy này do nhầm lẫn, bạn có thể thực hiện đặt lại sách bất cứ lúc nào trên ứng dụng của chúng tôi.</p>
+    </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,45 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: Borrow-Service
+
+  messages:
+    encoding: UTF-8
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:sqlserver://localhost:1433;databaseName=borrowdb;encrypt=true;trustServerCertificate=true;sendStringParametersAsUnicode=true;}
+    username: ${SPRING_DATASOURCE_USERNAME:sa}
+    password: ${SPRING_DATASOURCE_PASSWORD:123}
+
+  cloud:
+    openfeign:
+      httpclient:
+        hc5:
+          enabled: true
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    open-in-view: false
+
+
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+book:
+  service:
+    url: ${BOOK_SERVICE_URL:http://localhost:8082}
+
+reader:
+  service:
+    url: ${READER_SERVICE_URL:http://localhost:8081}
+
+app:
+  kafka:
+    topic: audit-events

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        .email-container {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            border: 1px solid #d4edda;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        .header {
+            background-color: #27ae60; /* Màu xanh lá tươi mới */
+            color: #ffffff;
+            padding: 25px;
+            text-align: center;
+        }
+        .content {
+            padding: 30px;
+            text-align: center;
+        }
+        .status-badge {
+            display: inline-block;
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9em;
+            margin: 15px 0;
+            border: 1px solid #c8e6c9;
+        }
+        .welcome-back {
+            font-size: 1.1em;
+            color: #2c3e50;
+        }
+        .action-button {
+            display: inline-block;
+            padding: 12px 30px;
+            background-color: #2c3e50;
+            color: #ffffff;
+            text-decoration: none;
+            border-radius: 25px;
+            margin-top: 20px;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        .footer {
+            background-color: #f9f9f9;
+            padding: 20px;
+            text-align: center;
+            font-size: 0.85em;
+            color: #7f8c8d;
+        }
+    </style>
+</head>
+<body>
+<div class="email-container">
+    <div class="header">
+        <h2>Chào Mừng Bạn Quay Trở Lại!</h2>
+    </div>
+
+    <div class="content">
+        <p class="welcome-back">Chào <strong>{{readerName}}</strong>,</p>
+
+        <p>Chúng tôi rất vui mừng thông báo rằng mọi vấn đề liên quan đến tài khoản của bạn đã được giải quyết.</p>
+
+        <div class="status-badge">
+            ✓ TRẠNG THÁI: ĐÃ KÍCH HOẠT
+        </div>
+
+        <p>Bất kỳ hạn chế nào trước đây đã được gỡ bỏ. Giờ đây, bạn có thể tiếp tục khám phá kho sách, mượn những tác phẩm yêu thích và sử dụng các dịch vụ tiện ích của chúng tôi ngay lập tức.</p>
+
+    </div>
+
+</div>
+</body>
+</html>

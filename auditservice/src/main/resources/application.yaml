@@ -1,0 +1,38 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: Audit Service
+
+  messages:
+    encoding: UTF-8
+
+  kafka:
+    listener:
+      poll-timeout: 1500
+      idle-between-polls: 500
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: audit-service-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: com.auditservice.infrastructure.messaging.dto.AuditEventPayload
+    producer:
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+  datasource:
+    # Thêm sendStringParametersAsUnicode=true để SQL Server nhận tiếng Việt
+    url: ${SPRING_DATASOURCE_URL:jdbc:sqlserver://localhost:1433;databaseName=auditdb;encrypt=true;trustServerCertificate=true;sendStringParametersAsUnicode=true;}
+    username: ${SPRING_DATASOURCE_USERNAME:sa}
+    password: ${SPRING_DATASOURCE_PASSWORD:123}
+
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    open-in-view: false

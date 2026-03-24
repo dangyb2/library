@@ -1,0 +1,9 @@
+package com.auditservice.application.port.in;
+
+import com.auditservice.application.dto.AuditLogSummaryView;
+
+import java.util.List;
+
+public interface GetAllAuditLogsUseCase {
+    List<AuditLogSummaryView> get();
+}

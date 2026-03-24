@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        .email-container {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            border: 1px solid #d1d8e0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .header {
+            background-color: #455a64; /* Màu xám xanh chuyên nghiệp */
+            color: #ffffff;
+            padding: 20px;
+            text-align: center;
+        }
+        .content {
+            padding: 30px;
+        }
+        .info-box {
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+            border: 1px solid #eceff1;
+            text-align: center;
+        }
+        .update-time {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .security-note {
+            background-color: #fff3e0;
+            border-left: 4px solid #ff9800;
+            padding: 15px;
+            font-size: 0.9em;
+            color: #5d4037;
+            margin-top: 20px;
+        }
+        .footer {
+            background-color: #f1f1f1;
+            padding: 15px;
+            text-align: center;
+            font-size: 0.8em;
+            color: #7f8c8d;
+        }
+        .btn-contact {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #2c3e50;
+            color: #ffffff;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+<div class="email-container">
+    <div class="header">
+        <h2>Cập Nhật Thông Tin Tài Khoản</h2>
+    </div>
+
+    <div class="content">
+        <p>Chào <strong>{{readerName}}</strong>,</p>
+        <p>Email này nhằm xác nhận rằng các thông tin cá nhân trên tài khoản thư viện của bạn đã được thay đổi thành công.</p>
+
+        <div class="info-box">
+            <span>Thời gian cập nhật:</span><br>
+            <span class="update-time">{{updatedAt}}</span>
+        </div>
+
+        <div class="security-note">
+            <strong>Bạn không thực hiện thay đổi này?</strong><br>
+            Để bảo vệ an toàn cho tài khoản, nếu bạn không yêu cầu cập nhật thông tin trên, vui lòng liên hệ với bộ phận hỗ trợ của chúng tôi ngay lập tức.
+        </div>
+
+
+    </div>
+
+
+</div>
+</body>
+</html>

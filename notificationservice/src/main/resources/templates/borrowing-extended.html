@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        .email-container {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            border: 1px solid #d1d8e0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .header {
+            background-color: #3498db; /* Màu xanh dương (Update/Extension) */
+            color: #ffffff;
+            padding: 20px;
+            text-align: center;
+        }
+        .content {
+            padding: 30px;
+        }
+        .book-title {
+            color: #2980b9;
+            font-weight: bold;
+        }
+        .update-box {
+            background-color: #ebf5fb;
+            border-left: 5px solid #3498db;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .new-date {
+            font-size: 1.2em;
+            color: #2c3e50;
+            font-weight: bold;
+        }
+        .footer {
+            background-color: #f9f9f9;
+            padding: 15px;
+            text-align: center;
+            font-size: 0.8em;
+            color: #95a5a6;
+        }
+    </style>
+</head>
+<body>
+<div class="email-container">
+    <div class="header">
+        <h2>Gia Hạn Sách Thành Công</h2>
+    </div>
+
+    <div class="content">
+        <p>Chào <strong>{{readerName}}</strong>,</p>
+        <p>Hệ thống xác nhận thời hạn mượn cuốn sách <span class="book-title">"{{bookTitle}}"</span> của bạn đã được thay đổi.</p>
+
+        <div class="update-box">
+            <div>Thời hạn trả sách mới của bạn là:</div>
+            <div class="new-date">{{dueDate}}</div>
+        </div>
+
+        <p>Chúc bạn có thêm thời gian đọc sách thật thú vị và ý nghĩa. Đừng quên hoàn trả sách đúng hạn để tránh phát sinh phí phạt nhé!</p>
+    </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,46 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: book-service
+              uri: ${BOOK_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/books/**
+              filters:
+                - StripPrefix=1
+
+            - id: reader-service
+              uri: ${READER_SERVICE_URL:http://localhost:8081}
+              predicates:
+                - Path=/api/readers/**
+              filters:
+                - StripPrefix=1
+
+            - id: borrow-service
+              uri: ${BORROW_SERVICE_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/borrows/**
+              filters:
+                - StripPrefix=1
+
+            - id: audit-service
+              uri: ${AUDIT_SERVICE_URL:http://localhost:8085}
+              predicates:
+                - Path=/api/audit-logs/**
+              filters:
+                - StripPrefix=1
+
+            # ADD THIS NEW ROUTE BLOCK
+            - id: notification-service
+              uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8084}
+              predicates:
+                - Path=/api/notifications/**
+              filters:
+                - StripPrefix=1

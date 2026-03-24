@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        .email-container {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            border: 1px solid #d4edda;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .header {
+            background-color: #27ae60; /* Màu xanh lá tài chính */
+            color: #ffffff;
+            padding: 20px;
+            text-align: center;
+        }
+        .content {
+            padding: 30px;
+        }
+        .receipt-box {
+            background-color: #ffffff;
+            border: 2px dashed #bdc3c7;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+            position: relative;
+        }
+        .receipt-title {
+            text-align: center;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #7f8c8d;
+            margin-bottom: 15px;
+            letter-spacing: 1px;
+        }
+        .receipt-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            border-bottom: 1px dotted #ecf0f1;
+            padding-bottom: 5px;
+        }
+        .receipt-label {
+            color: #7f8c8d;
+        }
+        .receipt-value {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .paid-stamp {
+            color: #27ae60;
+            border: 3px solid #27ae60;
+            display: inline-block;
+            padding: 5px 15px;
+            font-weight: bold;
+            text-transform: uppercase;
+            transform: rotate(-10deg);
+            opacity: 0.8;
+            margin-top: 15px;
+        }
+        .footer {
+            background-color: #f9f9f9;
+            padding: 15px;
+            text-align: center;
+            font-size: 0.8em;
+            color: #95a5a6;
+        }
+    </style>
+</head>
+<body>
+<div class="email-container">
+    <div class="header">
+        <h2>Xác Nhận Thanh Toán Phí Phạt</h2>
+    </div>
+
+    <div class="content">
+        <p>Chào <strong>{{readerName}}</strong>,</p>
+        <p>Hệ thống xác nhận đã nhận được khoản thanh toán của bạn cho cuốn sách quá hạn <strong>"{{bookTitle}}"</strong>. Tài khoản của bạn đã được cập nhật trạng thái.</p>
+
+        <div class="receipt-box">
+            <div class="receipt-title">--- Biên lai thanh toán ---</div>
+
+            <div class="receipt-row">
+                <span class="receipt-label">Số tiền đã trả:</span>
+                <span class="receipt-value">{{amountPaid}}</span>
+            </div>
+
+            <div class="receipt-row">
+                <span class="receipt-label">Ngày thực hiện:</span>
+                <span class="receipt-value">{{paymentDate}}</span>
+            </div>
+
+            <center>
+                <div class="paid-stamp">Đã thanh toán</div>
+            </center>
+        </div>
+
+    </div>
+
+
+</div>
+</body>
+</html>
