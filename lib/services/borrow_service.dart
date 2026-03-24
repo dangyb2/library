@@ -98,8 +98,13 @@ class BorrowService {
   ) =>
       _run(() => _repo.returnBook(borrowId, request));
 
-  Future<ServiceResult<double>> reportLost(String borrowId) =>
+  Future<ServiceResult<LostReportResult>> reportLost(String borrowId) =>
       _run(() => _repo.reportLost(borrowId));
+
+  /// Đánh dấu tìm lại được sách — áp dụng khi status = LOST
+  /// POST /borrows/{borrowId}/found
+  Future<ServiceResult<void>> markBookFound(String borrowId) =>
+      _run(() => _repo.markBookFound(borrowId));
 
   Future<ServiceResult<ExtendBorrowResultView>> extendBorrow(
     String borrowId,

@@ -332,7 +332,12 @@ class _SearchBarWidgetState extends State<SearchBarWidget>
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(14),
-                  child: ListView.separated(
+                  // Bọc toàn bộ list bằng 1 MouseRegion duy nhất.
+                  // Chỉ clear _activeIndex khi chuột rời khỏi dropdown —
+                  // không clear giữa các item để tránh nhấp nháy.
+                  child: MouseRegion(
+                    onExit: (_) => setState(() => _activeIndex = -1),
+                    child: ListView.separated(
                     controller: _scrollController,
                     shrinkWrap: true,
                     padding: const EdgeInsets.symmetric(vertical: 6),
@@ -348,12 +353,11 @@ class _SearchBarWidgetState extends State<SearchBarWidget>
                       final isActive = _activeIndex == index;
 
                       return MouseRegion(
+                        // Chỉ set index khi vào item — KHÔNG onExit ở đây
                         onEnter: (_) => setState(() => _activeIndex = index),
-                        onExit: (_) => setState(() => _activeIndex = -1),
                         child: InkWell(
                           onTap: () => _select(item),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 100),
+                          child: Container(
                             height: _itemHeight,
                             color: isActive
                                 ? const Color(0xFFF0F4FF)
@@ -401,6 +405,7 @@ class _SearchBarWidgetState extends State<SearchBarWidget>
                       );
                     },
                   ),
+                  ), // MouseRegion
                 ),
               ),
             ),

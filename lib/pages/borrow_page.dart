@@ -7,8 +7,8 @@ import '../services/borrow_service.dart';
 import '../services/book_service.dart';
 import '../gateway/api_gateway.dart';
 import '../widgets/custom_modal.dart';
-import '../widgets/custom_button.dart';
-import '../widgets/custom_table.dart'  hide TableActions;
+import '../widgets/custom_button.dart' hide TableActions;
+import '../widgets/custom_table.dart';
 import '../widgets/search_bar.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/custom_filter.dart';
@@ -93,6 +93,10 @@ class _BorrowPageState extends State<BorrowPage>
     });
   }
 
+  bool get _isReturnedOrLostFilter =>
+      _statusFilter == BorrowStatus.RETURNED ||
+      _statusFilter == BorrowStatus.LOST;
+
   // ── stats helpers ──────────────────────────
 
   int get _countBorrowed  =>
@@ -117,10 +121,9 @@ class _BorrowPageState extends State<BorrowPage>
     );
   }
 
-  void _closeModal() {
-    _modalCtrl.reverse().then((_) {
-      if (mounted) Navigator.of(context, rootNavigator: true).pop();
-    });
+  Future<void> _closeModal() async {
+    await _modalCtrl.reverse();
+    if (mounted) Navigator.of(context, rootNavigator: true).pop();
   }
 
   // ── snackbar ───────────────────────────────
@@ -353,12 +356,11 @@ class _BorrowPageState extends State<BorrowPage>
                 _applyFilter();
               },
             ),
-            const SizedBox(width: 12),
-            AppButton(
-              label: 'Làm mới',
-              variant: AppButtonVariant.secondary,
+            const SizedBox(width: 8),
+            AppIconButton(
               icon: Icons.refresh_rounded,
               onPressed: _loadData,
+              tooltip: 'Làm mới',
             ),
           ],
         ),
@@ -366,10 +368,30 @@ class _BorrowPageState extends State<BorrowPage>
         AppTable<BorrowSummaryView>(
           rows: _filtered,
           emptyMessage: 'Không có phiếu mượn nào',
+          cellValue: (row, key) {
+            switch (key) {
+              case 'bookTitle':
+                return row.bookTitle;
+              case 'readerName':
+                return row.readerName;
+              case 'borrowDate':
+                return row.borrowDate;
+              case 'dueDate':
+                return row.dueDate;
+              case 'returnDate':
+                return row.returnDate ?? DateTime(0);
+              case 'status':
+                return row.status.index;
+              default:
+                return '';
+            }
+          },
           columns: [
             AppTableColumn(
               label: 'Tên Sách',
               flex: 2,
+              sortable: true,
+              sortKey: 'bookTitle',
               builder: (row) => Text(
                 row.bookTitle,
                 style: const TextStyle(
@@ -383,26 +405,49 @@ class _BorrowPageState extends State<BorrowPage>
             AppTableColumn(
               label: 'Tên độc giả',
               flex: 2,
+              sortable: true,
+              sortKey: 'readerName',
               builder: (row) => Text(
                 row.readerName,
-                style: const TextStyle(
-                    fontSize: 13, color: Color(0xFF6B7280)),
+                style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
             AppTableColumn(
               label: 'Ngày mượn',
               flex: 2,
+              sortable: true,
+              sortKey: 'borrowDate',
               builder: (row) => Text(
                 _dateFormat.format(row.borrowDate),
-                style: const TextStyle(
-                    fontSize: 13, color: Color(0xFF6B7280)),
+                style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
               ),
             ),
             AppTableColumn(
-              label: 'Hạn trả',
+              label: _isReturnedOrLostFilter ? 'Ngày trả' : 'Hạn trả',
               flex: 2,
+              sortable: true,
+              sortKey: _isReturnedOrLostFilter ? 'returnDate' : 'dueDate',
               builder: (row) {
+                if (_isReturnedOrLostFilter) {
+                  // Hiển thị ngày trả
+                  final returnDate = row.returnDate;
+                  return Text(
+                    returnDate != null
+                        ? _dateFormat.format(returnDate)
+                        : '—',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: returnDate != null
+                          ? const Color(0xFF16A34A)
+                          : const Color(0xFF9CA3AF),
+                      fontWeight: returnDate != null
+                          ? FontWeight.w600
+                          : FontWeight.w400,
+                    ),
+                  );
+                }
+                // Hiển thị hạn trả (mặc định)
                 final overdue = row.status == BorrowStatus.OVERDUE;
                 return Row(
                   children: [
@@ -431,6 +476,8 @@ class _BorrowPageState extends State<BorrowPage>
             AppTableColumn(
               label: 'Trạng thái',
               flex: 2,
+              sortable: true,
+              sortKey: 'status',
               builder: (row) => _BorrowStatusBadge(row.status),
             ),
             AppTableColumn(
@@ -449,8 +496,9 @@ class _BorrowPageState extends State<BorrowPage>
   Widget _buildRowActions(BorrowSummaryView row) {
     final canReturn = row.status == BorrowStatus.BORROWED ||
         row.status == BorrowStatus.OVERDUE;
-    final canCancel = row.status == BorrowStatus.BORROWED;
-    final canUndo   = row.status == BorrowStatus.CANCELLED;
+    final canCancel   = row.status == BorrowStatus.BORROWED;
+    final canUndo     = row.status == BorrowStatus.CANCELLED;
+    final canMarkFound = row.status == BorrowStatus.LOST;
     final canEdit   = row.status == BorrowStatus.BORROWED ||
         row.status == BorrowStatus.OVERDUE;
 
@@ -519,6 +567,17 @@ class _BorrowPageState extends State<BorrowPage>
               icon: Icons.undo_rounded,
               color: const Color(0xFF2563EB),
               onTap: () => _confirmUndoCancel(row),
+            ),
+          ),
+
+        // Tìm lại sách — chỉ khi status = LOST
+        if (canMarkFound)
+          Tooltip(
+            message: 'Tìm lại sách',
+            child: _ActionIconBtn(
+              icon: Icons.find_in_page_rounded,
+              color: const Color(0xFFD97706),
+              onTap: () => _confirmMarkFound(row),
             ),
           ),
       ],
@@ -682,8 +741,9 @@ class _BorrowPageState extends State<BorrowPage>
 
               const SizedBox(height: 16),
 
+              // ── Tình trạng sách khi mượn ──────────
               _ConditionDropdown(
-                label: 'Tình trạng sách *',
+                label: 'Tình trạng sách khi mượn *',
                 value: condition,
                 onChanged: (v) => setLocal(() => condition = v),
               ),
@@ -931,14 +991,39 @@ class _BorrowPageState extends State<BorrowPage>
                       valueWidget: _PaymentBadge(status: d.paymentStatus),
                     )),
                   ]),
-                  if (d.fine > 0 && d.paymentStatus == PaymentStatus.UNPAID) ...[
-                    const SizedBox(height: 12),
-                    const Divider(height: 1, color: Color(0xFFF3F4F6)),
+                  const SizedBox(height: 10),
+                  const Divider(height: 1, color: Color(0xFFF3F4F6)),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Tổng thanh toán',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF374151),
+                        ),
+                      ),
+                      Text(
+                        '${_fmtCurrency(d.price + d.fine)} đ',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: (d.price + d.fine) > 0
+                              ? const Color(0xFF111827)
+                              : const Color(0xFF6B7280),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if ((d.price + d.fine) > 0 && d.paymentStatus == PaymentStatus.UNPAID) ...[
                     const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
                       child: _PayFineButton(
-                        fine: d.fine,
+                        fine: d.price + d.fine,
+                        label: d.status == BorrowStatus.LOST ? 'Thanh toán bồi thường' : null,
                         isLoading: _isPayingFine,
                         onTap: () => _confirmPayFine(d),
                       ),
@@ -977,6 +1062,7 @@ class _BorrowPageState extends State<BorrowPage>
       builder: (_) => _PayFineConfirmDialog(
         borrowId:  d.borrowId,
         bookTitle: d.bookTitle.isNotEmpty ? d.bookTitle : d.bookId,
+        rentalFee: d.price,
         fine:      d.fine,
       ),
     ) ?? false;
@@ -996,8 +1082,6 @@ class _BorrowPageState extends State<BorrowPage>
     }
   }
 
-  // ── 3. Trả sách ───────────────────────────
-
   // ── 3. Trả sách / Báo mất (gộp) ──────────
 
   void _openReturnOrLostModal(BorrowSummaryView row) {
@@ -1005,9 +1089,9 @@ class _BorrowPageState extends State<BorrowPage>
     bool isLoading           = false;
     bool isReturning         = true;
     bool previewLoading      = true;
+    bool previewRequested    = false;
     ReturnPreviewResult? preview;
 
-    // Load preview ngay khi mở modal
     Future<void> loadPreview(Function setLocal) async {
       try {
         final result = await _service.getReturnPreview(row.borrowId);
@@ -1018,8 +1102,9 @@ class _BorrowPageState extends State<BorrowPage>
 
     _openModal((ctrl) => StatefulBuilder(
       builder: (ctx, setLocal) {
-        // Load preview lần đầu
-        if (previewLoading && preview == null) {
+        // Chỉ gọi một lần duy nhất khi mở modal
+        if (!previewRequested) {
+          previewRequested = true;
           loadPreview(setLocal);
         }
         return AppModal(
@@ -1048,23 +1133,32 @@ class _BorrowPageState extends State<BorrowPage>
                 ReturnRequest(conditionReturn: condition),
               );
               setLocal(() => isLoading = false);
+              // Trong _openReturnOrLostModal, phần xử lý trả sách thành công
               if (result.isSuccess) {
-                _closeModal();
-                final d           = result.data!;
-                final fine        = d.fine;
-                final totalAmount = d.totalAmount ?? d.finalPrice;
-                String msg = 'Trả sách thành công!';
-                if (fine > 0 && totalAmount != null) {
-                  msg = 'Trả sách thành công! '
-                      'Tiền phạt: ${fine.toStringAsFixed(0)}đ  •  '
-                      'Tổng: ${totalAmount.toStringAsFixed(0)}đ';
-                } else if (fine > 0) {
-                  msg = 'Trả sách thành công! Tiền phạt: ${fine.toStringAsFixed(0)}đ';
-                } else if (totalAmount != null && totalAmount > 0) {
-                  msg = 'Trả sách thành công! Tổng: ${totalAmount.toStringAsFixed(0)}đ';
-                }
-                _toast(msg);
+                await _closeModal();
                 _loadData();
+                final d = result.data!;
+                if (!mounted) return;
+
+                // ✅ Sửa cách lấy rentalFee
+                final rentalFee = d.finalPrice ?? (d.totalAmount != null ? d.totalAmount! - d.fine : 0.0);
+
+                await showDialog<void>(
+                  context: context,
+                  barrierColor: const Color(0x80000000),
+                  builder: (_) => _ReturnSuccessDialog(
+                    borrowId:    d.borrowId,
+                    bookTitle:   row.bookTitle.isNotEmpty ? row.bookTitle : row.bookId,
+                    rentalFee:   rentalFee,
+                    fine:        d.fine,
+                    totalAmount: d.totalAmount ?? rentalFee + d.fine,
+                    service:     _service,
+                    onPaid: () {
+                      _loadData();
+                      _toast('Thanh toán thành công!');
+                    },
+                  ),
+                );
               } else {
                 _toast(result.errorMessage!, error: true);
               }
@@ -1072,9 +1166,26 @@ class _BorrowPageState extends State<BorrowPage>
               final result = await _service.reportLost(row.borrowId);
               setLocal(() => isLoading = false);
               if (result.isSuccess) {
-                _closeModal();
-                _toast('Đã báo mất! Tiền phạt: ${result.data!.toStringAsFixed(0)}đ');
+                await _closeModal();  
                 _loadData();
+                final d = result.data!;
+                if (!mounted) return;
+                await showDialog<void>(
+                  context: context,
+                  barrierColor: const Color(0x80000000),
+                  builder: (_) => _LostSuccessDialog(
+                    borrowId:    row.borrowId,
+                    bookTitle:   row.bookTitle.isNotEmpty ? row.bookTitle : row.bookId,
+                    rentalFee:   d.rentalFee,
+                    fineAmount:  d.fineAmount,
+                    totalAmount: d.totalAmount,
+                    service:     _service,
+                    onPaid: () {
+                      _loadData();
+                      _toast('Thanh toán thành công!');
+                    },
+                  ),
+                );
               } else {
                 _toast(result.errorMessage!, error: true);
               }
@@ -1164,7 +1275,7 @@ class _BorrowPageState extends State<BorrowPage>
                       const SizedBox(width: 10),
                       const Expanded(
                         child: Text(
-                          'Độc giả sẽ bị tính phí bồi thường. Hành động này không thể hoàn tác.',
+                          'Độc giả sẽ bị tính phí bồi thường.',
                           style: TextStyle(
                               fontSize: 12, color: Color(0xFF92400E)),
                         ),
@@ -1315,70 +1426,33 @@ class _BorrowPageState extends State<BorrowPage>
                 ),
               ),
               const SizedBox(height: 20),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Ngày gia hạn mới *',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF374151),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: TextField(
-                      controller: dueDateCtrl,
-                      readOnly: true,
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate:
-                              row.dueDate.add(const Duration(days: 7)),
-                          firstDate:
-                              row.dueDate.add(const Duration(days: 1)),
-                          lastDate:
-                              DateTime.now().add(const Duration(days: 365)),
-                        );
-                        if (picked != null) {
-                          setLocal(() {
-                            newDueDate = picked;
-                            dueDateCtrl.text = _dateFormat.format(picked);
-                          });
-                        }
-                      },
-                      style: const TextStyle(fontSize: 13),
-                      decoration: InputDecoration(
-                        hintText: 'Chọn ngày gia hạn mới',
-                        hintStyle: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFFBFC4CC),
-                        ),
-                        suffixIcon: const Icon(
-                          Icons.calendar_today_rounded,
-                          size: 16,
-                          color: Color(0xFF9CA3AF),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 11),
-                        filled: true,
-                        fillColor: const Color(0xFFF9FAFB),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide:
-                              const BorderSide(color: Color(0xFFE5E7EB)),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(
-                              color: Color(0xFF2563EB), width: 1.5),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+              AppModalField(
+                label: 'Ngày gia hạn mới *',
+                controller: dueDateCtrl,
+                hint: 'Chọn ngày gia hạn mới',
+                readOnly: true,
+                suffixIcon: const Icon(
+                  Icons.calendar_today_rounded,
+                  size: 16,
+                  color: Color(0xFF9CA3AF),
+                ),
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate:
+                        row.dueDate.add(const Duration(days: 7)),
+                    firstDate:
+                        row.dueDate.add(const Duration(days: 1)),
+                    lastDate:
+                        DateTime.now().add(const Duration(days: 365)),
+                  );
+                  if (picked != null) {
+                    setLocal(() {
+                      newDueDate = picked;
+                      dueDateCtrl.text = _dateFormat.format(picked);
+                    });
+                  }
+                },
               ),
             ],
           ),
@@ -1513,6 +1587,88 @@ class _BorrowPageState extends State<BorrowPage>
     ));
   }
 
+  // ── 7b. Tìm lại sách ──────────────────────
+
+  void _confirmMarkFound(BorrowSummaryView row) {
+    _openModal((ctrl) => AppModal(
+      controller: ctrl,
+      width: 440,
+      header: AppModalHeader(
+        icon: Icons.find_in_page_rounded,
+        iconColor: const Color(0xFFD97706),
+        iconBg: const Color(0xFFFFFBEB),
+        title: 'Tìm lại sách',
+        subtitle: 'Phiếu: ${row.borrowId}',
+        onClose: _closeModal,
+      ),
+      footer: AppModalFooter(
+        onCancel: _closeModal,
+        confirmLabel: 'Xác nhận tìm lại',
+        confirmIcon: Icons.find_in_page_rounded,
+        showRequiredHint: false,
+        onConfirm: () async {
+          final result = await _service.markBookFound(row.borrowId);
+          _closeModal();
+          if (result.isSuccess) {
+            _toast('Đã cập nhật trạng thái tìm lại sách thành công');
+            _loadData();
+          } else {
+            _toast(result.errorMessage!, error: true);
+          }
+        },
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Thông tin phiếu
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF9FAFB),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+              ),
+              child: Column(children: [
+                _DetailRow('Tên sách',
+                    row.bookTitle.isNotEmpty ? row.bookTitle : row.bookId),
+                _DetailRow('Độc giả', row.readerName),
+                _DetailRow('Ngày mượn', _dateFormat.format(row.borrowDate)),
+                _DetailRow('Hạn trả',   _dateFormat.format(row.dueDate)),
+              ]),
+            ),
+            const SizedBox(height: 16),
+            // Thông báo
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.info_outline_rounded,
+                      color: Color(0xFFD97706), size: 18),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'Sách sẽ được đánh dấu là đã tìm thấy.\n'
+                      'Trạng thái phiếu mượn sẽ được cập nhật theo kết quả từ máy chủ.',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF92400E)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    ));
+  }
+
   // ── 8. Sửa phiếu mượn ─────────────────────
 
   void _openEditModal(BorrowSummaryView row) {
@@ -1520,7 +1676,7 @@ class _BorrowPageState extends State<BorrowPage>
     BookCondition condition      = BookCondition.GOOD;
     bool          isLoading      = false;
 
-    String? selectedReaderId     = row.bookId.isNotEmpty ? row.bookId : null;
+    String? selectedReaderId     = row.readerId.isNotEmpty ? row.readerId : null;
     String  selectedReaderName   = row.readerName;
     String? selectedBookId       = row.bookId;
     String  selectedBookName     = row.bookTitle.isNotEmpty ? row.bookTitle : row.bookId;
@@ -2895,6 +3051,637 @@ class _PaymentBadge extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────
+//  _ReturnSuccessDialog — kết quả trả sách
+// ─────────────────────────────────────────────
+
+class _ReturnSuccessDialog extends StatefulWidget {
+  const _ReturnSuccessDialog({
+    required this.borrowId,
+    required this.bookTitle,
+    required this.rentalFee,
+    required this.fine,
+    required this.totalAmount,
+    required this.service,
+    required this.onPaid,
+  });
+  final String        borrowId;
+  final String        bookTitle;
+  final double        rentalFee;
+  final double        fine;
+  final double        totalAmount;
+  final BorrowService service;
+  final VoidCallback  onPaid;
+
+  @override
+  State<_ReturnSuccessDialog> createState() => _ReturnSuccessDialogState();
+}
+
+class _ReturnSuccessDialogState extends State<_ReturnSuccessDialog>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double>   _scale;
+  late final Animation<double>   _fade;
+  bool _isPaying = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl  = AnimationController(vsync: this, duration: const Duration(milliseconds: 220));
+    _scale = Tween<double>(begin: 0.90, end: 1.0)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+    _fade  = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+
+  Future<void> _close() async {
+    await _ctrl.reverse();
+    if (mounted) Navigator.pop(context);
+  }
+
+  Future<void> _pay() async {
+    setState(() => _isPaying = true);
+    final result = await widget.service.payFine(widget.borrowId);
+    if (!mounted) return;
+    setState(() => _isPaying = false);
+    if (result.isSuccess) {
+      widget.onPaid();
+      await _ctrl.reverse();
+      if (mounted) Navigator.pop(context);
+    } else {
+      final errorMsg = result.errorMessage ?? 'Thanh toán thất bại, vui lòng thử lại.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMsg),
+          backgroundColor: const Color(0xFFEF4444),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          margin: const EdgeInsets.all(16),
+        ),
+      );
+    }
+  }
+
+  String _fmt(double v) => v == 0
+      ? '0'
+      : v.toStringAsFixed(0).replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
+  
+  bool get _needsPayment => widget.totalAmount > 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _fade,
+      child: ScaleTransition(
+        scale: _scale,
+        alignment: Alignment.center,
+        child: Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 60),
+          child: Container(
+            width: 420,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: const [
+                BoxShadow(color: Color(0x22000000), blurRadius: 36, offset: Offset(0, 14)),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ── Header ─────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(28, 28, 28, 0),
+                  child: Column(children: [
+                    Container(
+                      width: 60, height: 60,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: const Icon(Icons.check_circle_rounded,
+                          size: 32, color: Color(0xFF16A34A)),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'Trả sách thành công!',
+                      style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF111827)),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      widget.bookTitle,
+                      style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ]),
+                ),
+
+                // ── Chi tiết tài chính ──────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(28, 20, 28, 0),
+                  child: Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: _needsPayment
+                          ? const Color(0xFFFEF2F2)
+                          : const Color(0xFFF0FDF4),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: _needsPayment
+                            ? const Color(0xFFFECACA)
+                            : const Color(0xFFBBF7D0),
+                      ),
+                    ),
+                    child: Column(children: [
+                      _FeeRow(
+                        label: 'Tiền mượn sách',
+                        amount: widget.rentalFee,
+                        icon: Icons.book_outlined,
+                        iconColor: const Color(0xFF2563EB),
+                      ),
+                      if (_needsPayment) ...[
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Divider(height: 1,
+                              color: _needsPayment
+                                  ? const Color(0xFFFECACA)
+                                  : const Color(0xFFBBF7D0)),
+                        ),
+                        _FeeRow(
+                          label: 'Tiền phạt quá hạn',
+                          amount: widget.fine,
+                          icon: Icons.warning_amber_rounded,
+                          iconColor: const Color(0xFFDC2626),
+                          amountColor: const Color(0xFFDC2626),
+                        ),
+                      ],
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Divider(height: 1,
+                            color: _needsPayment
+                                ? const Color(0xFFFECACA)
+                                : const Color(0xFFBBF7D0)),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Tổng thanh toán',
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF374151))),
+                            Text(
+                              '${_fmt(widget.totalAmount)} đ',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                color: _needsPayment
+                                    ? const Color(0xFFDC2626)
+                                    : const Color(0xFF16A34A),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ]),
+                  ),
+                ),
+
+                // ── Trạng thái chưa thanh toán ─────
+                if (_needsPayment)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(28, 12, 28, 0),
+                    child: Row(children: [
+                      Container(
+                        width: 8, height: 8,
+                        decoration: const BoxDecoration(
+                            color: Color(0xFFF59E0B), shape: BoxShape.circle),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text('Chưa thanh toán — vui lòng thu tiền phạt',
+                          style: TextStyle(fontSize: 12, color: Color(0xFF92400E))),
+                    ]),
+                  ),
+
+                // ── Buttons ─────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(28, 20, 28, 24),
+                  child: _needsPayment
+                      ? Column(children: [
+                          _PayNowButton(
+                            totalAmount: widget.totalAmount,
+                            isLoading: _isPaying,
+                            onTap: _pay,
+                          ),
+                          const SizedBox(height: 10),
+                          GestureDetector(
+                            onTap: _isPaying ? null : _close,
+                            child: const Center(
+                              child: Text(
+                                'Thanh toán sau',
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFF9CA3AF),
+                                    decoration: TextDecoration.underline),
+                              ),
+                            ),
+                          ),
+                        ])
+                      : SizedBox(
+                          width: double.infinity,
+                          child: _ConfirmBtn(
+                            label: 'Đóng',
+                            filled: true,
+                            onTap: _close,
+                          ),
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+//  _LostSuccessDialog — kết quả báo mất sách
+// ─────────────────────────────────────────────
+
+class _LostSuccessDialog extends StatefulWidget {
+  const _LostSuccessDialog({
+    required this.borrowId,
+    required this.bookTitle,
+    required this.rentalFee,
+    required this.fineAmount,
+    required this.totalAmount,
+    required this.service,
+    required this.onPaid,
+  });
+  final String        borrowId;
+  final String        bookTitle;
+  final double        rentalFee;
+  final double        fineAmount;
+  final double        totalAmount;
+  final BorrowService service;
+  final VoidCallback  onPaid;
+
+  @override
+  State<_LostSuccessDialog> createState() => _LostSuccessDialogState();
+}
+
+class _LostSuccessDialogState extends State<_LostSuccessDialog>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double>   _scale;
+  late final Animation<double>   _fade;
+  bool _isPaying = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl  = AnimationController(vsync: this, duration: const Duration(milliseconds: 220));
+    _scale = Tween<double>(begin: 0.90, end: 1.0)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+    _fade  = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+
+  Future<void> _close() async {
+    await _ctrl.reverse();
+    if (mounted) Navigator.pop(context);
+  }
+
+  Future<void> _pay() async {
+    setState(() => _isPaying = true);
+    final result = await widget.service.payFine(widget.borrowId);
+    if (!mounted) return;
+    setState(() => _isPaying = false);
+    if (result.isSuccess) {
+      widget.onPaid();
+      await _ctrl.reverse();
+      if (mounted) Navigator.pop(context);
+    } else {
+      final errorMsg = result.errorMessage ?? 'Thanh toán thất bại, vui lòng thử lại.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMsg),
+          backgroundColor: const Color(0xFFEF4444),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          margin: const EdgeInsets.all(16),
+        ),
+      );
+    }
+  }
+
+  String _fmt(double v) => v == 0
+      ? '0'
+      : v.toStringAsFixed(0).replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _fade,
+      child: ScaleTransition(
+        scale: _scale,
+        alignment: Alignment.center,
+        child: Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 60),
+          child: Container(
+            width: 420,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: const [
+                BoxShadow(color: Color(0x22000000), blurRadius: 36, offset: Offset(0, 14)),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ── Header ─────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(28, 28, 28, 0),
+                  child: Column(children: [
+                    Container(
+                      width: 60, height: 60,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFFBEB),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: const Icon(Icons.report_gmailerrorred_outlined,
+                          size: 32, color: Color(0xFFD97706)),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'Đã ghi nhận báo mất!',
+                      style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF111827)),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      widget.bookTitle,
+                      style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ]),
+                ),
+
+                // ── Chi tiết tài chính ──────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(28, 20, 28, 0),
+                  child: Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFBEB),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFFDE68A)),
+                    ),
+                    child: Column(children: [
+                      _FeeRow(
+                        label: 'Tiền mượn sách',
+                        amount: widget.rentalFee,
+                        icon: Icons.book_outlined,
+                        iconColor: const Color(0xFF2563EB),
+                      ),
+                      if (widget.fineAmount > 0) ...[
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          child: Divider(height: 1, color: Color(0xFFFDE68A)),
+                        ),
+                        _FeeRow(
+                          label: 'Tiền phạt bồi thường',
+                          amount: widget.fineAmount,
+                          icon: Icons.warning_amber_rounded,
+                          iconColor: const Color(0xFFD97706),
+                          amountColor: const Color(0xFFD97706),
+                        ),
+                      ],
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: Divider(height: 1, color: Color(0xFFFDE68A)),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Tổng thanh toán',
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF374151))),
+                            Text(
+                              '${_fmt(widget.totalAmount)} đ',
+                              style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFFD97706)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ]),
+                  ),
+                ),
+
+                // ── Trạng thái chưa thanh toán ─────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(28, 12, 28, 0),
+                  child: Row(children: [
+                    Container(
+                      width: 8, height: 8,
+                      decoration: const BoxDecoration(
+                          color: Color(0xFFF59E0B), shape: BoxShape.circle),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('Chưa thanh toán — vui lòng thu tiền bồi thường',
+                        style: TextStyle(fontSize: 12, color: Color(0xFF92400E))),
+                  ]),
+                ),
+
+                // ── Buttons ─────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(28, 20, 28, 24),
+                  child: Column(children: [
+                    _PayNowButton(
+                      totalAmount: widget.totalAmount,
+                      isLoading: _isPaying,
+                      onTap: _pay,
+                      color: const Color(0xFFD97706),
+                      pressedColor: const Color(0xFFB45309),
+                      loadingColor: const Color(0xFFFDE68A),
+                    ),
+                    const SizedBox(height: 10),
+                    GestureDetector(
+                      onTap: _isPaying ? null : _close,
+                      child: const Center(
+                        child: Text(
+                          'Thanh toán sau',
+                          style: TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF9CA3AF),
+                              decoration: TextDecoration.underline),
+                        ),
+                      ),
+                    ),
+                  ]),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+//  _FeeRow — dòng phí trong dialog thanh toán
+// ─────────────────────────────────────────────
+
+class _FeeRow extends StatelessWidget {
+  const _FeeRow({
+    required this.label,
+    required this.amount,
+    required this.icon,
+    required this.iconColor,
+    this.amountColor = const Color(0xFF374151),
+  });
+  final String   label;
+  final double   amount;
+  final IconData icon;
+  final Color    iconColor;
+  final Color    amountColor;
+
+  String _fmt(double v) => v == 0
+      ? '0'
+      : v.toStringAsFixed(0).replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(children: [
+        Icon(icon, size: 15, color: iconColor),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(label,
+              style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280))),
+        ),
+        Text(
+          '${_fmt(amount)} đ',
+          style: TextStyle(
+              fontSize: 13, fontWeight: FontWeight.w600, color: amountColor),
+        ),
+      ]),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+//  _PayNowButton — nút thanh toán ngay
+// ─────────────────────────────────────────────
+
+class _PayNowButton extends StatefulWidget {
+  const _PayNowButton({
+    required this.totalAmount,
+    required this.isLoading,
+    required this.onTap,
+    this.color        = const Color(0xFFDC2626),
+    this.pressedColor = const Color(0xFFB91C1C),
+    this.loadingColor = const Color(0xFFFECACA),
+  });
+  final double       totalAmount;
+  final bool         isLoading;
+  final VoidCallback onTap;
+  final Color        color;
+  final Color        pressedColor;
+  final Color        loadingColor;
+
+  @override
+  State<_PayNowButton> createState() => _PayNowButtonState();
+}
+
+class _PayNowButtonState extends State<_PayNowButton> {
+  bool _pressed = false;
+
+  String _fmt(double v) => v.toStringAsFixed(0).replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = widget.isLoading
+        ? widget.loadingColor
+        : (_pressed ? widget.pressedColor : widget.color);
+    return GestureDetector(
+      onTapDown:   (_) => setState(() => _pressed = true),
+      onTapUp:     (_) { setState(() => _pressed = false); if (!widget.isLoading) widget.onTap(); },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 100),
+        height: 46,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (widget.isLoading)
+              const SizedBox(
+                width: 18, height: 18,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white),
+              )
+            else
+              const Icon(Icons.payment_rounded, size: 18, color: Colors.white),
+            const SizedBox(width: 8),
+            Text(
+              widget.isLoading
+                  ? 'Đang xử lý...'
+                  : 'Thanh toán ngay  ${_fmt(widget.totalAmount)} đ',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+                letterSpacing: 0.1,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
 //  _PayFineButton — nút thanh toán trong card
 // ─────────────────────────────────────────────
 
@@ -2903,10 +3690,12 @@ class _PayFineButton extends StatelessWidget {
     required this.fine,
     required this.onTap,
     this.isLoading = false,
+    this.label,
   });
   final double       fine;
   final VoidCallback onTap;
   final bool         isLoading;
+  final String?      label;
 
   String _fmt(double v) => v.toStringAsFixed(0).replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
@@ -2932,7 +3721,7 @@ class _PayFineButton extends StatelessWidget {
               const Icon(Icons.payment_rounded, size: 16, color: Colors.white),
             const SizedBox(width: 8),
             Text(
-              isLoading ? 'Đang xử lý...' : 'Thanh toán ${_fmt(fine)} đ',
+              isLoading ? 'Đang xử lý...' : (label ?? 'Thanh toán ${_fmt(fine)} đ'),
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white),
             ),
           ],
@@ -2950,10 +3739,12 @@ class _PayFineConfirmDialog extends StatefulWidget {
   const _PayFineConfirmDialog({
     required this.borrowId,
     required this.bookTitle,
+    required this.rentalFee,
     required this.fine,
   });
   final String borrowId;
   final String bookTitle;
+  final double rentalFee;
   final double fine;
 
   @override
@@ -3025,16 +3816,37 @@ class _PayFineConfirmDialogState extends State<_PayFineConfirmDialog>
                     const SizedBox(height: 16),
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                       decoration: BoxDecoration(
                         color: const Color(0xFFFEF2F2),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: const Color(0xFFFECACA)),
                       ),
                       child: Column(children: [
-                        const Text('Số tiền phạt', style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Giá thuê', style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
+                            Text('${_fmt(widget.rentalFee)} đ',
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF374151))),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Tiền phạt', style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
+                            Text('${_fmt(widget.fine)} đ',
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFFDC2626))),
+                          ],
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 10),
+                          child: Divider(height: 1, color: Color(0xFFFECACA)),
+                        ),
+                        const Text('Tổng thanh toán', style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
                         const SizedBox(height: 4),
-                        Text('${_fmt(widget.fine)} đ',
+                        Text('${_fmt(widget.rentalFee + widget.fine)} đ',
                             style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: Color(0xFFDC2626))),
                       ]),
                     ),

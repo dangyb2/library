@@ -7,7 +7,8 @@ abstract class IBorrowRepository {
   Future<BorrowReceiptView> borrowBook(BorrowRequest request);
   Future<BorrowDetailsView> updateBorrow(String borrowId, UpdateBorrowRequest request);
   Future<ReturnedBorrowView> returnBook(String borrowId, ReturnRequest request);
-  Future<double> reportLost(String borrowId);
+  Future<LostReportResult> reportLost(String borrowId);
+  Future<void> markBookFound(String borrowId);
   Future<ExtendBorrowResultView> extendBorrow(String borrowId, ExtendRequest request);
   Future<void> payFine(String borrowId);
   Future<void> cancelBorrow(String borrowId);
@@ -54,9 +55,14 @@ class BorrowRepository implements IBorrowRepository {
   }
 
   @override
-  Future<double> reportLost(String borrowId) async {
+  Future<LostReportResult> reportLost(String borrowId) async {
     final res = await _client.post('/borrows/$borrowId/lost');
-    return (res.body as num).toDouble();
+    return LostReportResult.fromJson(res.asMap());
+  }
+
+  @override
+  Future<void> markBookFound(String borrowId) async {
+    await _client.post('/borrows/$borrowId/found', body: <String, String>{});
   }
 
   @override
@@ -67,17 +73,17 @@ class BorrowRepository implements IBorrowRepository {
 
   @override
   Future<void> payFine(String borrowId) async {
-    await _client.patch('/borrows/$borrowId/pay-fine', body: {});
+    await _client.patch('/borrows/$borrowId/payment');
   }
 
   @override
   Future<void> cancelBorrow(String borrowId) async {
-    await _client.patch('/borrows/$borrowId/cancel', body: {});
+    await _client.patch('/borrows/$borrowId/cancel');
   }
 
   @override
   Future<void> undoCancelBorrow(String borrowId) async {
-    await _client.patch('/borrows/$borrowId/undo-cancel', body: {});
+    await _client.patch('/borrows/$borrowId/undo-cancel');
   }
 
   @override

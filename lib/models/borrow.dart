@@ -106,7 +106,6 @@ class BorrowReceiptView {
   final String bookId;
   final DateTime borrowDate;
   final DateTime dueDate;
-  final BookCondition conditionBorrow;
   final double price;
 
   const BorrowReceiptView({
@@ -115,7 +114,6 @@ class BorrowReceiptView {
     required this.bookId,
     required this.borrowDate,
     required this.dueDate,
-    required this.conditionBorrow,
     required this.price,
   });
 
@@ -126,9 +124,6 @@ class BorrowReceiptView {
         bookId: json['bookId'] as String,
         borrowDate: DateTime.parse(json['borrowDate'] as String),
         dueDate: DateTime.parse(json['dueDate'] as String),
-        conditionBorrow: BookConditionX.fromString(
-          json['conditionBorrow'] as String,
-        ),
         price: (json['price'] as num).toDouble(),
       );
 }
@@ -137,7 +132,7 @@ class BorrowDetailsView {
   final String borrowId;
   final String readerId;
   final String bookId;
-  final String bookTitle;   
+  final String bookTitle;
   final String readerName;
   final DateTime borrowDate;
   final DateTime dueDate;
@@ -170,7 +165,7 @@ class BorrowDetailsView {
       BorrowDetailsView(
         borrowId: json['borrowId'] as String,
         readerId: json['readerId'] as String,
-        bookId: json['bookId'] as String ,
+        bookId: json['bookId'] as String,
         bookTitle: json['bookTitle'] as String? ?? '',
         readerName: json['readerName'] as String? ?? '',
         borrowDate: DateTime.parse(json['borrowDate'] as String),
@@ -193,22 +188,31 @@ class BorrowDetailsView {
       );
 }
 
+// ─────────────────────────────────────────────
+//  BorrowSummaryView
+//  THAY ĐỔI: thêm field readerId theo API spec
+// ─────────────────────────────────────────────
+
 class BorrowSummaryView {
   final String borrowId;
   final String bookId;
   final String bookTitle;
+  final String readerId;
   final String readerName;
   final DateTime borrowDate;
   final DateTime dueDate;
+  final DateTime? returnDate;
   final BorrowStatus status;
 
   const BorrowSummaryView({
     required this.borrowId,
     required this.bookId,
     required this.bookTitle,
+    required this.readerId,
     required this.readerName,
     required this.borrowDate,
     required this.dueDate,
+    this.returnDate,
     required this.status,
   });
 
@@ -216,10 +220,14 @@ class BorrowSummaryView {
       BorrowSummaryView(
         borrowId:   json['borrowId']   as String,
         bookId:     json['bookId']     as String,
-        bookTitle:  json['bookTitle']  as String? ?? '',   
-        readerName: json['readerName'] as String? ?? '',   
+        bookTitle:  json['bookTitle']  as String? ?? '',
+        readerId:   json['readerId']   as String? ?? '',
+        readerName: json['readerName'] as String? ?? '',
         borrowDate: DateTime.parse(json['borrowDate'] as String),
         dueDate:    DateTime.parse(json['dueDate']    as String),
+        returnDate: json['returnDate'] != null
+            ? DateTime.parse(json['returnDate'] as String)
+            : null,
         status:     BorrowStatusX.fromString(json['status'] as String),
       );
 }
@@ -305,11 +313,36 @@ class OverdueBorrowView {
         readerId: json['readerId'] as String,
         bookId: json['bookId'] as String,
         dueDate: DateTime.parse(json['dueDate'] as String),
-        daysOverdue: json['daysOverdue'] as int,
+        // API spec: int64 — JSON number luôn parse được thành int
+        daysOverdue: (json['daysOverdue'] as num).toInt(),
         currentFine: (json['currentFine'] as num).toDouble(),
         paymentStatus: PaymentStatusX.fromString(
           json['paymentStatus'] as String,
         ),
+      );
+}
+
+// ─────────────────────────────────────────────
+//  LostReportResult — kết quả báo mất sách
+//  POST /borrows/{borrowId}/lost
+// ─────────────────────────────────────────────
+
+class LostReportResult {
+  final double rentalFee;
+  final double fineAmount;
+  final double totalAmount;
+
+  const LostReportResult({
+    required this.rentalFee,
+    required this.fineAmount,
+    required this.totalAmount,
+  });
+
+  factory LostReportResult.fromJson(Map<String, dynamic> json) =>
+      LostReportResult(
+        rentalFee:   (json['rentalFee']   as num).toDouble(),
+        fineAmount:  (json['fineAmount']  as num).toDouble(),
+        totalAmount: (json['totalAmount'] as num).toDouble(),
       );
 }
 
@@ -344,7 +377,8 @@ class ReturnPreviewResult {
         currentPrice: (json['currentPrice'] as num).toDouble(),
         fine:         (json['fine']         as num).toDouble(),
         isOverdue:    json['isOverdue']    as bool? ?? false,
-        daysBorrowed: json['daysBorrowed'] as int? ?? 0,
+        // API spec: int64 — dùng toInt() để an toàn hơn khi server trả về double
+        daysBorrowed: (json['daysBorrowed'] as num? ?? 0).toInt(),
         totalAmount:  (json['totalAmount']  as num).toDouble(),
       );
 }
