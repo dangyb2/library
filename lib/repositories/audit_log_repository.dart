@@ -65,20 +65,6 @@ class AuditLogRepository {
     }
   }
 
-  // ── Lấy chi tiết 1 log theo id ────────────
-
-  Future<ServiceResult<AuditLogDetailView>> getById(String id) async {
-    try {
-      final res    = await _client.get('/audit-logs/$id');
-      final detail = AuditLogDetailView.fromJson(res.asMap());
-      return ServiceResult.success(detail);
-    } on GatewayException catch (e) {
-      return ServiceResult.failure(e.message);
-    } catch (e) {
-      return ServiceResult.failure('Không thể tải chi tiết audit log: $e');
-    }
-  }
-
   // ── Lấy log theo loại sự kiện ─────────────
 
   Future<ServiceResult<List<AuditLogSummaryView>>> listByEventType(
@@ -94,7 +80,7 @@ class AuditLogRepository {
       return ServiceResult.failure(e.message);
     } catch (e) {
       return ServiceResult.failure(
-          'Không thể tải log theo event type "$eventType": $e');
+          'Không thể tải log theo loại sự kiện "$eventType": $e');
     }
   }
 

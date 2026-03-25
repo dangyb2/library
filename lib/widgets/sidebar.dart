@@ -23,6 +23,7 @@ class _SidebarState extends State<Sidebar> {
   final List<Map<String, dynamic>> navItems = [
     {"id": "dashboard", "label": "Tổng Quát", "icon": Icons.dashboard_outlined},
     {"id": "log_history", "label": "Lịch sử hệ thống", "icon": Icons.history_outlined},
+    {"id": "notifications", "label": "Thông báo email", "icon": Icons.email_outlined},
     {"id": "books", "label": "Quản Lý Sách", "icon": Icons.menu_book_outlined},
     {"id": "members", "label": "Thành Viên", "icon": Icons.people_outline},
     {"id": "borrowing", "label": "Mượn / Trả", "icon": Icons.swap_horiz},

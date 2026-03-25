@@ -1,5 +1,3 @@
-// Models — OpenAPI http://100.71.15.110:8082
-
 // ─── helpers ──────────────────────────────────────────────────
 List<String> _strings(dynamic v) =>
     (v as List<dynamic>?)?.cast<String>() ?? [];
@@ -159,7 +157,6 @@ class CreateBookCommand {
 
 // ─────────────────────────────────────────────────────────────
 //  UpdateBookCommand  ←  PUT /books/{id}
-//  ⚠ Không có stock — dùng PATCH /books/{id}/stock/{add|decrease|return}
 // ─────────────────────────────────────────────────────────────
 
 class UpdateBookCommand {

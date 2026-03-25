@@ -165,28 +165,11 @@ class AuditLogService {
     }
   }
 
-  // ── 2. Lấy chi tiết 1 log ─────────────────
-
-  Future<ServiceResult<AuditLogDetailView>> getDetail(String id) async {
-    try {
-      final res    = await _client.get('/audit-logs/$id');
-      final detail = AuditLogDetailView.fromJson(res.asMap());
-      return ServiceResult.success(detail);
-    } on GatewayException catch (e) {
-      return ServiceResult.failure(e.message);
-    } catch (e) {
-      return ServiceResult.failure('Không thể tải chi tiết log: $e');
-    }
-  }
-
-  // ── 3. Lấy danh sách eventType phân biệt ──
-  //      (dùng để populate dropdown filter)
-
   Future<ServiceResult<List<String>>> listEventTypes() async {
     try {
       final all = await _fetchAll();
       final types = all
-          .map((l) => l.eventType)
+          .map((l) => l.rawEventType) // lấy raw
           .toSet()
           .toList()
         ..sort();
@@ -194,11 +177,9 @@ class AuditLogService {
     } on GatewayException catch (e) {
       return ServiceResult.failure(e.message);
     } catch (e) {
-      return ServiceResult.failure('Không thể tải danh sách event type: $e');
+      return ServiceResult.failure('Không thể tải danh sách loại sự kiện: $e');
     }
   }
-
-  // ── 4. Thống kê nhanh cho stat cards ──────
 
   Future<ServiceResult<AuditLogStats>> getStats() async {
     try {
@@ -207,8 +188,8 @@ class AuditLogService {
       // Đếm theo event type
       final countByType = <String, int>{};
       for (final log in all) {
-        countByType[log.eventType] =
-            (countByType[log.eventType] ?? 0) + 1;
+        countByType[log.rawEventType] =
+            (countByType[log.rawEventType] ?? 0) + 1;
       }
 
       // Hôm nay
@@ -289,13 +270,13 @@ class AuditLogService {
     return list.where((log) {
       // eventType (nếu đã fetch bằng /audit-logs hoặc /date-range)
       if (filter.eventType != null &&
-          log.eventType != filter.eventType) return false;
+          log.rawEventType != filter.eventType) return false;
 
       // search tự do trên message
       if (filter.search != null && filter.search!.isNotEmpty) {
         final q = filter.search!.toLowerCase();
         if (!log.message.toLowerCase().contains(q) &&
-            !log.eventType.toLowerCase().contains(q) &&
+            !log.rawEventType.toLowerCase().contains(q) &&
             !log.aggregateId.toLowerCase().contains(q)) {
           return false;
         }
@@ -325,7 +306,7 @@ class AuditLogService {
         case AuditLogSortField.occurredAt:
           cmp = a.occurredAt.compareTo(b.occurredAt);
         case AuditLogSortField.eventType:
-          cmp = a.eventType.compareTo(b.eventType);
+          cmp = a.rawEventType.compareTo(b.rawEventType);
         case AuditLogSortField.aggregateId:
           cmp = a.aggregateId.compareTo(b.aggregateId);
       }

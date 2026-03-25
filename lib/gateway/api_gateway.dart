@@ -492,6 +492,38 @@ class AuditLogClient {
           serviceName: 'AuditLogService');
 }
 
+/// Client dành riêng cho Notification Service
+/// Gateway route: /api/notifications/** → notification-service (StripPrefix=1)
+class NotificationClient {
+  NotificationClient(this._gateway);
+  final ApiGateway _gateway;
+
+  static const _base   = ServiceUrls.gateway;
+  static const _prefix = '/api';
+
+  Future<GatewayResponse> get(String path,
+          {Map<String, String>? queryParams}) =>
+      _gateway.get(_base, '$_prefix$path',
+          queryParams: queryParams, serviceName: 'NotificationService');
+
+  Future<GatewayResponse> post(String path, {Object? body}) =>
+      _gateway.post(_base, '$_prefix$path',
+          body: body, serviceName: 'NotificationService');
+
+  Future<GatewayResponse> put(String path, {Object? body}) =>
+      _gateway.put(_base, '$_prefix$path',
+          body: body, serviceName: 'NotificationService');
+
+  Future<GatewayResponse> patch(String path,
+          {Object? body, Map<String, String>? queryParams}) =>
+      _gateway.patch(_base, '$_prefix$path',
+          body: body, queryParams: queryParams, serviceName: 'NotificationService');
+
+  Future<GatewayResponse> delete(String path) =>
+      _gateway.delete(_base, '$_prefix$path',
+          serviceName: 'NotificationService');
+}
+
 // ─────────────────────────────────────────────
 //  SERVICE LOCATOR  (singleton, dùng toàn app)
 // ─────────────────────────────────────────────
@@ -506,6 +538,7 @@ class AppGateway {
   late final BookClient     book;
   late final ReaderClient   reader;
   late final AuditLogClient auditLog;
+  late final NotificationClient notification;
 
   bool _initialized = false;
 
@@ -529,6 +562,7 @@ class AppGateway {
     book     = BookClient(_gateway);
     reader   = ReaderClient(_gateway);
     auditLog = AuditLogClient(_gateway);
+    notification = NotificationClient(_gateway);
 
     _initialized = true;
   }

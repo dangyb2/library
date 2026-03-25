@@ -5,7 +5,7 @@ import '../models/audit_log.dart';
 import '../services/audit_log_service.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_filter.dart';
-import '../widgets/custom_table.dart' ;
+import '../widgets/custom_table.dart';
 import '../widgets/search_bar.dart';
 import '../widgets/stat_card.dart';
 
@@ -23,20 +23,20 @@ class AuditLogPage extends StatefulWidget {
 class _AuditLogPageState extends State<AuditLogPage>
     with TickerProviderStateMixin {
   final AuditLogService _service = AuditLogService();
-  final _dateFormat     = DateFormat('dd/MM/yyyy HH:mm');
+  final _dateFormat = DateFormat('dd/MM/yyyy HH:mm');
   final _dateOnlyFormat = DateFormat('dd/MM/yyyy');
 
   // ── State ───────────────────────────────────
-  List<AuditLogSummaryView> _allLogs  = [];
+  List<AuditLogSummaryView> _allLogs = [];
   List<AuditLogSummaryView> _filtered = [];
-  AuditLogStats?            _stats;
-  bool   _isLoading    = true;
-  String _search       = '';
-  String? _eventFilter;
+  AuditLogStats? _stats;
+  bool _isLoading = true;
+  String _search = '';
+  String? _eventFilter; // lưu raw event type
   DateTime? _fromDate;
   DateTime? _toDate;
 
-  // event types phân biệt để populate filter
+  // event types raw để populate filter
   List<String> _eventTypes = [];
 
   // ── Modal animation ─────────────────────────
@@ -64,20 +64,21 @@ class _AuditLogPageState extends State<AuditLogPage>
     setState(() => _isLoading = true);
 
     final [logsResult, statsResult, typesResult] = await Future.wait([
-      _service.listLogs(),   // luôn fetch tất cả, lọc date client-side
+      _service.listLogs(), // luôn fetch tất cả, lọc date client-side
       _service.getStats(),
       _service.listEventTypes(),
     ]);
 
-    final logs  = (logsResult  as ServiceResult<List<AuditLogSummaryView>>).data ?? [];
+    final logs =
+        (logsResult as ServiceResult<List<AuditLogSummaryView>>).data ?? [];
     final stats = (statsResult as ServiceResult<AuditLogStats>).data;
     final types = (typesResult as ServiceResult<List<String>>).data ?? [];
 
     setState(() {
-      _allLogs    = logs;
-      _stats      = stats;
+      _allLogs = logs;
+      _stats = stats;
       _eventTypes = types;
-      _isLoading  = false;
+      _isLoading = false;
       _applyFilter();
     });
   }
@@ -85,20 +86,19 @@ class _AuditLogPageState extends State<AuditLogPage>
   void _applyFilter() {
     setState(() {
       _filtered = _allLogs.where((log) {
+        // Tìm kiếm tự do trên message, tên hiển thị của event type, aggregateId và id
         final matchSearch = _search.isEmpty ||
-            log.message.toLowerCase().contains(_search.toLowerCase())     ||
-            log.eventType.toLowerCase().contains(_search.toLowerCase())   ||
+            log.message.toLowerCase().contains(_search.toLowerCase()) ||
+            log.displayEventType.toLowerCase().contains(_search.toLowerCase()) ||
             log.aggregateId.toLowerCase().contains(_search.toLowerCase()) ||
             log.id.toLowerCase().contains(_search.toLowerCase());
 
-        final matchEvent =
-            _eventFilter == null || log.eventType == _eventFilter;
+        // Lọc theo loại sự kiện (so sánh raw)
+        final matchEvent = _eventFilter == null || log.rawEventType == _eventFilter;
 
-        final matchFrom =
-            _fromDate == null || !log.occurredAt.isBefore(_fromDate!);
-
-        final matchTo =
-            _toDate == null || !log.occurredAt.isAfter(_toDate!);
+        // Lọc theo ngày
+        final matchFrom = _fromDate == null || !log.occurredAt.isBefore(_fromDate!);
+        final matchTo = _toDate == null || !log.occurredAt.isAfter(_toDate!);
 
         return matchSearch && matchEvent && matchFrom && matchTo;
       }).toList();
@@ -108,7 +108,7 @@ class _AuditLogPageState extends State<AuditLogPage>
   void _clearDateRange() {
     setState(() {
       _fromDate = null;
-      _toDate   = null;
+      _toDate = null;
     });
     _applyFilter();
   }
@@ -161,12 +161,10 @@ class _AuditLogPageState extends State<AuditLogPage>
             const SizedBox(height: 4),
             Text(
               'Tổng ${_allLogs.length} sự kiện được ghi nhận',
-              style: const TextStyle(
-                  fontSize: 13, color: Color(0xFF9CA3AF)),
+              style: const TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
             ),
           ],
         ),
-
         const Spacer(),
       ],
     );
@@ -226,11 +224,14 @@ class _AuditLogPageState extends State<AuditLogPage>
   // ── TABLE SECTION ────────────────────────────
 
   Widget _buildTableSection() {
-    // Tạo map event type cho FilterPopup
-    final eventTypeMap = {
-      for (final t in _eventTypes) t: _formatEventType(t),
-    };
-
+    final eventTypeMap = <String, String>{};
+    for (final raw in _eventTypes) {
+      try {
+        eventTypeMap[raw] = AuditEventTypeName.fromString(raw).viName;
+      } catch (_) {
+        eventTypeMap[raw] = raw; // fallback
+      }
+    }
     return Column(
       children: [
         // Toolbar
@@ -239,18 +240,24 @@ class _AuditLogPageState extends State<AuditLogPage>
             Expanded(
               flex: 3,
               child: SearchBarWidget(
-                hintText: 'Tìm theo message, event type, aggregate ID...',
+                hintText: 'Tìm theo nội dung, loại sự kiện, id...',
                 suggestions: [
-                  ..._allLogs.map((l) => l.eventType),
+                  ..._allLogs.map((l) => l.displayEventType),
                   ..._allLogs.map((l) => l.aggregateId),
                 ],
-                onChanged: (v) { _search = v; _applyFilter(); },
-                onSelect:  (v) { _search = v; _applyFilter(); },
+                onChanged: (v) {
+                  _search = v;
+                  _applyFilter();
+                },
+                onSelect: (v) {
+                  _search = v;
+                  _applyFilter();
+                },
               ),
             ),
             const SizedBox(width: 12),
             FilterPopup(
-              label: 'Event Type',
+              label: 'Loại sự kiện',
               icon: Icons.category_outlined,
               selected: _eventFilter,
               searchable: _eventTypes.length > 6,
@@ -262,14 +269,17 @@ class _AuditLogPageState extends State<AuditLogPage>
             ),
             const SizedBox(width: 8),
             _DateRangeButton(
-              from:       _fromDate,
-              to:         _toDate,
+              from: _fromDate,
+              to: _toDate,
               dateFormat: _dateOnlyFormat,
-              onApply:    (from, to) {
-                setState(() { _fromDate = from; _toDate = to; });
+              onApply: (from, to) {
+                setState(() {
+                  _fromDate = from;
+                  _toDate = to;
+                });
                 _applyFilter();
               },
-              onClear:    _clearDateRange,
+              onClear: _clearDateRange,
             ),
             const SizedBox(width: 8),
             AppIconButton(
@@ -282,23 +292,23 @@ class _AuditLogPageState extends State<AuditLogPage>
             ),
           ],
         ),
-
         const SizedBox(height: 16),
-
         AppTable<AuditLogSummaryView>(
           rows: _filtered,
           emptyMessage: 'Không có sự kiện nào',
           columns: [
             // Event Type
             AppTableColumn(
-              label: 'Event Type',
+              label: 'Loại sự kiện',
               flex: 2,
               builder: (row) => Align(
                 alignment: Alignment.centerLeft,
-                child: _EventTypeBadge(eventType: row.eventType),
+                child: _EventTypeBadge(
+                  rawEventType: row.rawEventType,
+                  displayName: row.displayEventType,
+                ),
               ),
             ),
-
             // Message
             AppTableColumn(
               label: 'Nội dung',
@@ -313,7 +323,6 @@ class _AuditLogPageState extends State<AuditLogPage>
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-
             // Occurred At
             AppTableColumn(
               label: 'Thời gian',
@@ -333,26 +342,12 @@ class _AuditLogPageState extends State<AuditLogPage>
                 ],
               ),
             ),
-
           ],
         ),
       ],
     );
   }
-
-
-  // ── Helpers ─────────────────────────────────
-
-  String _formatEventType(String raw) {
-    return raw
-        .split(RegExp(r'[_\s]'))
-        .map((w) => w.isEmpty
-            ? ''
-            : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
-        .join(' ');
-  }
 }
-
 
 // ─────────────────────────────────────────────
 //  _DateRangeButton — dropdown popup chọn ngày
@@ -368,11 +363,11 @@ class _DateRangeButton extends StatefulWidget {
     this.to,
   });
 
-  final DateTime?                      from;
-  final DateTime?                      to;
-  final DateFormat                     dateFormat;
+  final DateTime? from;
+  final DateTime? to;
+  final DateFormat dateFormat;
   final void Function(DateTime, DateTime) onApply;
-  final VoidCallback                   onClear;
+  final VoidCallback onClear;
 
   @override
   State<_DateRangeButton> createState() => _DateRangeButtonState();
@@ -381,15 +376,18 @@ class _DateRangeButton extends StatefulWidget {
 class _DateRangeButtonState extends State<_DateRangeButton>
     with SingleTickerProviderStateMixin {
   final _key = GlobalKey();
-  OverlayEntry?            _overlay;
+  OverlayEntry? _overlay;
   late AnimationController _ctrl;
-  late Animation<double>   _fade;
-  late Animation<Offset>   _slide;
+  late Animation<double> _fade;
+  late Animation<Offset> _slide;
 
-  bool _hovered    = false;
+  bool _hovered = false;
   bool _pickerOpen = false; // true khi showDatePicker đang mở
 
-  static const _blue   = Color(0xFF2563EB);
+  // ── scroll listener ────────────────────────
+  ScrollPosition? _scrollPosition;
+
+  static const _blue = Color(0xFF2563EB);
   static const _blueBg = Color(0xFFEFF6FF);
 
   @override
@@ -397,21 +395,37 @@ class _DateRangeButtonState extends State<_DateRangeButton>
     super.initState();
     _ctrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 180));
-    _fade  = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
     _slide = Tween<Offset>(
       begin: const Offset(0, -0.08),
-      end:   Offset.zero,
+      end: Offset.zero,
     ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _scrollPosition?.removeListener(_onScroll);
+    _scrollPosition = Scrollable.maybeOf(context)?.position;
+    _scrollPosition?.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_overlay != null && !_pickerOpen) _removeOverlay();
+  }
+
+  @override
   void dispose() {
+    _scrollPosition?.removeListener(_onScroll);
     _removeOverlay();
     _ctrl.dispose();
     super.dispose();
   }
 
-  void _removeOverlay() { _overlay?.remove(); _overlay = null; }
+  void _removeOverlay() {
+    _overlay?.remove();
+    _overlay = null;
+  }
 
   Future<void> _closeOverlay() async {
     await _ctrl.reverse();
@@ -420,17 +434,19 @@ class _DateRangeButtonState extends State<_DateRangeButton>
   }
 
   void _toggle() {
-    if (_overlay != null) { _closeOverlay(); return; }
+    if (_overlay != null) {
+      _closeOverlay();
+      return;
+    }
 
-    final box   = _key.currentContext!.findRenderObject() as RenderBox;
-    final pos   = box.localToGlobal(Offset.zero);
-    final size  = box.size;
+    final box = _key.currentContext!.findRenderObject() as RenderBox;
+    final pos = box.localToGlobal(Offset.zero);
+    final size = box.size;
 
     _overlay = OverlayEntry(builder: (overlayCtx) {
-      // Tính vị trí popup
       final popupRight =
           MediaQuery.sizeOf(context).width - (pos.dx + size.width);
-      final popupTop   = pos.dy + size.height + 6;
+      final popupTop = pos.dy + size.height + 6;
 
       return Stack(children: [
         // Barrier trong suốt — chỉ đóng khi tap bên NGOÀI popup
@@ -443,11 +459,10 @@ class _DateRangeButtonState extends State<_DateRangeButton>
             },
           ),
         ),
-
         // Popup — bọc GestureDetector để hấp thụ tap, tránh bubble lên barrier
         Positioned(
           right: popupRight,
-          top:   popupTop,
+          top: popupTop,
           width: 300,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
@@ -459,10 +474,10 @@ class _DateRangeButtonState extends State<_DateRangeButton>
                 child: Material(
                   color: Colors.transparent,
                   child: _DateRangePopup(
-                    initialFrom:   widget.from,
-                    initialTo:     widget.to,
-                    dateFormat:    widget.dateFormat,
-                    onPickerOpen:  () => _pickerOpen = true,
+                    initialFrom: widget.from,
+                    initialTo: widget.to,
+                    dateFormat: widget.dateFormat,
+                    onPickerOpen: () => _pickerOpen = true,
                     onPickerClose: () => _pickerOpen = false,
                     onApply: (from, to) {
                       widget.onApply(from, to);
@@ -488,16 +503,16 @@ class _DateRangeButtonState extends State<_DateRangeButton>
 
   @override
   Widget build(BuildContext context) {
-    final isOpen   = _overlay != null;
+    final isOpen = _overlay != null;
     final isActive = widget.from != null && widget.to != null;
-    final label    = isActive
+    final label = isActive
         ? '${widget.dateFormat.format(widget.from!)}  –  ${widget.dateFormat.format(widget.to!)}'
         : 'Lọc theo ngày';
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hovered = true),
-      onExit:  (_) => setState(() => _hovered = false),
+      onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
         key: _key,
         onTap: _toggle,
@@ -507,7 +522,9 @@ class _DateRangeButtonState extends State<_DateRangeButton>
           decoration: BoxDecoration(
             color: isActive || isOpen
                 ? _blueBg
-                : _hovered ? const Color(0xFFF9FAFB) : Colors.white,
+                : _hovered
+                    ? const Color(0xFFF9FAFB)
+                    : Colors.white,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: isActive || isOpen ? _blue : const Color(0xFFE5E7EB),
@@ -527,11 +544,14 @@ class _DateRangeButtonState extends State<_DateRangeButton>
               Icon(Icons.date_range_rounded, size: 15,
                   color: isActive || isOpen ? _blue : const Color(0xFF9CA3AF)),
               const SizedBox(width: 6),
-              Text(label, style: TextStyle(
-                fontSize: 13,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                color: isActive || isOpen ? _blue : const Color(0xFF6B7280),
-              )),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                  color: isActive || isOpen ? _blue : const Color(0xFF6B7280),
+                ),
+              ),
               const SizedBox(width: 6),
               if (isActive)
                 GestureDetector(
@@ -542,11 +562,11 @@ class _DateRangeButtonState extends State<_DateRangeButton>
                     widget.onClear();
                   },
                   child: Container(
-                    width: 16, height: 16,
+                    width: 16,
+                    height: 16,
                     decoration: const BoxDecoration(
                         color: _blue, shape: BoxShape.circle),
-                    child: const Icon(Icons.close,
-                        size: 10, color: Colors.white),
+                    child: const Icon(Icons.close, size: 10, color: Colors.white),
                   ),
                 )
               else
@@ -580,9 +600,9 @@ class _DateRangePopup extends StatefulWidget {
     this.initialTo,
   });
 
-  final DateTime?    initialFrom;
-  final DateTime?    initialTo;
-  final DateFormat   dateFormat;
+  final DateTime? initialFrom;
+  final DateTime? initialTo;
+  final DateFormat dateFormat;
   final void Function(DateTime, DateTime) onApply;
   final VoidCallback onClear;
   final VoidCallback onPickerOpen;
@@ -595,25 +615,25 @@ class _DateRangePopup extends StatefulWidget {
 class _DateRangePopupState extends State<_DateRangePopup> {
   late DateTime? _from;
   late DateTime? _to;
-  int?           _activePreset;
+  int? _activePreset;
 
-  static const _blue  = Color(0xFF2563EB);
+  static const _blue = Color(0xFF2563EB);
   static const _presets = [
-    ('Hôm nay',     0),
-    ('7 ngày qua',  7),
+    ('Hôm nay', 0),
+    ('7 ngày qua', 7),
     ('30 ngày qua', 30),
-    ('Tháng này',   -1),
+    ('Tháng này', -1),
   ];
 
   @override
   void initState() {
     super.initState();
     _from = widget.initialFrom;
-    _to   = widget.initialTo;
+    _to = widget.initialTo;
   }
 
   void _applyPreset(int index) {
-    final now   = DateTime.now();
+    final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     DateTime from;
     final to = DateTime(now.year, now.month, now.day, 23, 59, 59);
@@ -628,8 +648,8 @@ class _DateRangePopupState extends State<_DateRangePopup> {
     }
 
     setState(() {
-      _from         = from;
-      _to           = to;
+      _from = from;
+      _to = to;
       _activePreset = index;
     });
   }
@@ -661,8 +681,7 @@ class _DateRangePopupState extends State<_DateRangePopup> {
             Container(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
               decoration: const BoxDecoration(
-                border: Border(
-                    bottom: BorderSide(color: Color(0xFFF3F4F6))),
+                border: Border(bottom: BorderSide(color: Color(0xFFF3F4F6))),
               ),
               child: Row(children: [
                 const Icon(Icons.calendar_month_rounded,
@@ -676,7 +695,6 @@ class _DateRangePopupState extends State<_DateRangePopup> {
                     )),
               ]),
             ),
-
             // ── Preset chips ──────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
@@ -692,9 +710,7 @@ class _DateRangePopupState extends State<_DateRangePopup> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 11, vertical: 6),
                       decoration: BoxDecoration(
-                        color: isActive
-                            ? _blue
-                            : const Color(0xFFF3F4F6),
+                        color: isActive ? _blue : const Color(0xFFF3F4F6),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
@@ -712,56 +728,54 @@ class _DateRangePopupState extends State<_DateRangePopup> {
                 }),
               ),
             ),
-
             // ── Divider ───────────────────────────
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               child: Divider(height: 1, color: Color(0xFFF3F4F6)),
             ),
-
             // ── Từ / Đến ──────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14),
               child: Row(children: [
-                Expanded(child: _DateField(
-                  label:         'Từ ngày',
-                  value:         _from,
-                  lastDate:      _to ?? DateTime.now(),
-                  onPickerOpen:  widget.onPickerOpen,
-                  onPickerClose: widget.onPickerClose,
-                  onPicked: (d) => setState(() {
-                    _from         = d;
-                    _activePreset = null;
-                  }),
-                )),
+                Expanded(
+                  child: _DateField(
+                    label: 'Từ ngày',
+                    value: _from,
+                    lastDate: _to ?? DateTime.now(),
+                    onPickerOpen: widget.onPickerOpen,
+                    onPickerClose: widget.onPickerClose,
+                    onPicked: (d) => setState(() {
+                      _from = d;
+                      _activePreset = null;
+                    }),
+                  ),
+                ),
                 const SizedBox(width: 8),
                 const Text('–',
                     style: TextStyle(
-                        color: Color(0xFF9CA3AF),
-                        fontWeight: FontWeight.w600)),
+                        color: Color(0xFF9CA3AF), fontWeight: FontWeight.w600)),
                 const SizedBox(width: 8),
-                Expanded(child: _DateField(
-                  label:         'Đến ngày',
-                  value:         _to,
-                  firstDate:     _from ?? DateTime(2020),
-                  onPickerOpen:  widget.onPickerOpen,
-                  onPickerClose: widget.onPickerClose,
-                  onPicked: (d) => setState(() {
-                    _to           = DateTime(d.year, d.month, d.day, 23, 59, 59);
-                    _activePreset = null;
-                  }),
-                )),
+                Expanded(
+                  child: _DateField(
+                    label: 'Đến ngày',
+                    value: _to,
+                    firstDate: _from ?? DateTime(2020),
+                    onPickerOpen: widget.onPickerOpen,
+                    onPickerClose: widget.onPickerClose,
+                    onPicked: (d) => setState(() {
+                      _to = DateTime(d.year, d.month, d.day, 23, 59, 59);
+                      _activePreset = null;
+                    }),
+                  ),
+                ),
               ]),
             ),
-
             const SizedBox(height: 12),
-
             // ── Actions ───────────────────────────
             Container(
               padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
               decoration: const BoxDecoration(
-                border: Border(
-                    top: BorderSide(color: Color(0xFFF3F4F6))),
+                border: Border(top: BorderSide(color: Color(0xFFF3F4F6))),
               ),
               child: Row(children: [
                 // Xoá
@@ -777,13 +791,11 @@ class _DateRangePopupState extends State<_DateRangePopup> {
                 const Spacer(),
                 // Áp dụng
                 GestureDetector(
-                  onTap: _canApply
-                      ? () => widget.onApply(_from!, _to!)
-                      : null,
+                  onTap: _canApply ? () => widget.onApply(_from!, _to!) : null,
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 120),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: _canApply ? _blue : const Color(0xFFE5E7EB),
                       borderRadius: BorderRadius.circular(8),
@@ -822,13 +834,13 @@ class _DateField extends StatefulWidget {
     this.lastDate,
   });
 
-  final String             label;
-  final DateTime?          value;
-  final DateTime?          firstDate;
-  final DateTime?          lastDate;
+  final String label;
+  final DateTime? value;
+  final DateTime? firstDate;
+  final DateTime? lastDate;
   final ValueChanged<DateTime> onPicked;
-  final VoidCallback           onPickerOpen;
-  final VoidCallback           onPickerClose;
+  final VoidCallback onPickerOpen;
+  final VoidCallback onPickerClose;
 
   @override
   State<_DateField> createState() => _DateFieldState();
@@ -841,22 +853,22 @@ class _DateFieldState extends State<_DateField> {
   @override
   Widget build(BuildContext context) {
     final hasValue = widget.value != null;
-    final label    = hasValue
+    final label = hasValue
         ? DateFormat(_fmt).format(widget.value!)
         : widget.label;
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hovered = true),
-      onExit:  (_) => setState(() => _hovered = false),
+      onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
         onTap: () async {
           widget.onPickerOpen();
           final picked = await showDatePicker(
             context: context,
             initialDate: widget.value ?? DateTime.now(),
-            firstDate:   widget.firstDate ?? DateTime(2020),
-            lastDate:    widget.lastDate  ?? DateTime.now(),
+            firstDate: widget.firstDate ?? DateTime(2020),
+            lastDate: widget.lastDate ?? DateTime.now(),
             builder: (ctx, child) => Theme(
               data: Theme.of(ctx).copyWith(
                 colorScheme: const ColorScheme.light(
@@ -894,16 +906,16 @@ class _DateFieldState extends State<_DateField> {
                     : const Color(0xFFD1D5DB),
               ),
               const SizedBox(width: 5),
-              Text(label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: hasValue
-                        ? FontWeight.w600
-                        : FontWeight.w400,
-                    color: hasValue
-                        ? const Color(0xFF111827)
-                        : const Color(0xFF9CA3AF),
-                  )),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: hasValue ? FontWeight.w600 : FontWeight.w400,
+                  color: hasValue
+                      ? const Color(0xFF111827)
+                      : const Color(0xFF9CA3AF),
+                ),
+              ),
             ],
           ),
         ),
@@ -912,30 +924,33 @@ class _DateFieldState extends State<_DateField> {
   }
 }
 
-
 // ─────────────────────────────────────────────
 //  _EventTypeBadge — chip màu theo event type
 // ─────────────────────────────────────────────
 
 class _EventTypeBadge extends StatelessWidget {
-  const _EventTypeBadge({required this.eventType});
-  final String eventType;
+  const _EventTypeBadge({
+    required this.rawEventType,
+    required this.displayName,
+  });
+  final String rawEventType;
+  final String displayName;
 
-  static Color _colorFor(String type) {
-    final t = type.toUpperCase();
-    if (t.contains('CREATE') || t.contains('ADD'))    return const Color(0xFF16A34A);
-    if (t.contains('UPDATE') || t.contains('EDIT'))   return const Color(0xFF2563EB);
+  static Color _colorFor(String rawType) {
+    final t = rawType.toUpperCase();
+    if (t.contains('CREATE') || t.contains('ADD')) return const Color(0xFF16A34A);
+    if (t.contains('UPDATE') || t.contains('EDIT')) return const Color(0xFF2563EB);
     if (t.contains('DELETE') || t.contains('REMOVE')) return const Color(0xFFDC2626);
-    if (t.contains('BORROW'))                         return const Color(0xFF7C3AED);
-    if (t.contains('RETURN'))                         return const Color(0xFF0891B2);
-    if (t.contains('EXTEND'))                         return const Color(0xFFD97706);
-    if (t.contains('LOST'))                           return const Color(0xFFEA580C);
+    if (t.contains('BORROW')) return const Color(0xFF7C3AED);
+    if (t.contains('RETURN')) return const Color(0xFF0891B2);
+    if (t.contains('EXTEND')) return const Color(0xFFD97706);
+    if (t.contains('LOST')) return const Color(0xFFEA580C);
     return const Color(0xFF6B7280);
   }
 
   @override
   Widget build(BuildContext context) {
-    final color = _colorFor(eventType);
+    final color = _colorFor(rawEventType);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -947,14 +962,14 @@ class _EventTypeBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 6, height: 6,
-            decoration: BoxDecoration(
-                color: color, shape: BoxShape.circle),
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: 6),
           Flexible(
             child: Text(
-              eventType,
+              displayName,
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,

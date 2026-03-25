@@ -3,6 +3,8 @@ import 'package:my_app/pages/borrow_page.dart';
 import '../widgets/sidebar.dart';
 import '../pages/books_page.dart';
 import '../pages/audit_log_page.dart';
+import '../pages/notification_email_page.dart';
+
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -57,6 +59,9 @@ class _MainLayoutState extends State<MainLayout> {
 
       case "log_history":
         return const AuditLogPage();
+
+      case "notifications":
+        return const NotificationPage();
 
       case "books":
         return const BooksPage();

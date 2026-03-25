@@ -198,6 +198,9 @@ class _FilterPopupState extends State<FilterPopup>
   late Animation<Offset>   _slide;
   final _key = GlobalKey();
 
+  // ── scroll listener ────────────────────────
+  ScrollPosition? _scrollPosition;
+
   static const _blue   = Color(0xFF2563EB);
   static const _blueBg = Color(0xFFEFF6FF);
 
@@ -214,7 +217,22 @@ class _FilterPopupState extends State<FilterPopup>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Gỡ listener cũ nếu có
+    _scrollPosition?.removeListener(_onScroll);
+    // Gắn listener mới vào scroll ancestor gần nhất
+    _scrollPosition = Scrollable.maybeOf(context)?.position;
+    _scrollPosition?.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_overlay != null) _removeOverlay();
+  }
+
+  @override
   void dispose() {
+    _scrollPosition?.removeListener(_onScroll);
     _removeOverlay();
     _ctrl.dispose();
     super.dispose();
