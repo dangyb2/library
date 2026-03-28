@@ -34,7 +34,6 @@ class _BorrowPageState extends State<BorrowPage>
   // ── state ──────────────────────────────────
   List<BorrowSummaryView> _allBorrows = [];
   List<BorrowSummaryView> _filtered   = [];
-  List<OverdueBorrowView> _overdues   = [];
   bool _isLoading    = true;
   bool _isPayingFine = false;
   String _search  = '';
@@ -63,17 +62,11 @@ class _BorrowPageState extends State<BorrowPage>
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    final [borrows, overdues] = await Future.wait([
-      _service.listAllBorrows(),
-      _service.getOverdueBorrows(),
-    ]);
-
-    final b = (borrows as ServiceResult<List<BorrowSummaryView>>).data ?? [];
-    final o = (overdues as ServiceResult<List<OverdueBorrowView>>).data ?? [];
+    final borrows = await _service.listAllBorrows();  // chỉ lấy borrows
+    final b = (borrows).data ?? [];
 
     setState(() {
       _allBorrows  = b;
-      _overdues    = o;
       _isLoading   = false;
       _applyFilter();
     });
@@ -101,7 +94,8 @@ class _BorrowPageState extends State<BorrowPage>
 
   int get _countBorrowed  =>
       _allBorrows.where((b) => b.status == BorrowStatus.BORROWED).length;
-  int get _countOverdue   => _overdues.length;
+  int get _countOverdue => 
+      _allBorrows.where((b) => b.status == BorrowStatus.OVERDUE).length;
   int get _countReturned  =>
       _allBorrows.where((b) => b.status == BorrowStatus.RETURNED).length;
   int get _countLost      =>
@@ -193,34 +187,6 @@ class _BorrowPageState extends State<BorrowPage>
         ),
 
         const Spacer(),
-
-        // Overdue badge
-        if (_countOverdue > 0)
-          Container(
-            margin: const EdgeInsets.only(right: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFEF2F2),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFFECACA)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.warning_amber_rounded,
-                    size: 15, color: Color(0xFFDC2626)),
-                const SizedBox(width: 6),
-                Text(
-                  '$_countOverdue phiếu quá hạn',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFDC2626),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
         AppButton(
           label: 'Tạo phiếu mượn',
           icon: Icons.add_rounded,
@@ -1017,7 +983,9 @@ class _BorrowPageState extends State<BorrowPage>
                       ),
                     ],
                   ),
-                  if ((d.price + d.fine) > 0 && d.paymentStatus == PaymentStatus.UNPAID) ...[
+                  if ((d.price + d.fine) > 0 &&
+                  d.paymentStatus == PaymentStatus.UNPAID &&
+                  (d.status == BorrowStatus.RETURNED || d.status == BorrowStatus.LOST)) ...[
                     const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
@@ -2033,16 +2001,19 @@ class _BorrowStatusBadge extends StatelessWidget {
       BorrowStatus.CANCELLED => ('Đã huỷ',   const Color(0xFFF3F4F6), const Color(0xFF6B7280)),
     };
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-            fontSize: 12, fontWeight: FontWeight.w600, color: fg),
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+              fontSize: 12, fontWeight: FontWeight.w600, color: fg),
+        ),
       ),
     );
   }

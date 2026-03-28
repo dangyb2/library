@@ -222,6 +222,7 @@ class _HoverButtonState extends State<_HoverButton> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          alignment: Alignment.center,
           decoration: BoxDecoration(
             color: _isHover ? widget.hoverColor : widget.bgColor,
             borderRadius: BorderRadius.circular(10),

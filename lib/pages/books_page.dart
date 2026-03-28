@@ -1116,6 +1116,13 @@ class _AddBookModalState extends State<AddBookModal>
                   label: 'ISBN',
                   controller: _isbnCtrl,
                   hint: 'VD: 978-3-16-148410-0',
+                  validator: (v) {
+                    final digits = (v ?? '').replaceAll(RegExp(r'[^0-9]'), '');
+                    if (digits.isEmpty) return null; // ISBN không bắt buộc
+                    if (digits.length != 10 && digits.length != 13)
+                      return 'ISBN phải đủ 10 hoặc 13 chữ số';
+                    return null;
+                  },
                 )),
                 const SizedBox(width: 16),
                 SizedBox(width: 130, child: AppModalField(
@@ -1362,6 +1369,13 @@ class _EditBookModalState extends State<EditBookModal>
                     label:      'ISBN',
                     controller: _isbnCtrl,
                     hint:       'VD: 978-3-16-148410-0',
+                    validator: (v) {
+                      final digits = (v ?? '').replaceAll(RegExp(r'[^0-9]'), '');
+                      if (digits.isEmpty) return null; // ISBN không bắt buộc
+                      if (digits.length != 10 && digits.length != 13)
+                        return 'ISBN phải đủ 10 hoặc 13 chữ số';
+                      return null;
+                    },
                   )),
                   const SizedBox(width: 14),
                   SizedBox(width: 148, child: AppModalField(

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:my_app/pages/borrow_page.dart';
-import '../widgets/sidebar.dart';
-import '../pages/books_page.dart';
-import '../pages/audit_log_page.dart';
-import '../pages/notification_email_page.dart';
 
+import '../pages/audit_log_page.dart';
+import '../pages/books_page.dart';
+import '../pages/borrow_page.dart';
+import '../pages/notification_email_page.dart';
+import '../pages/readers_page.dart';
+import '../widgets/sidebar.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -14,15 +15,13 @@ class MainLayout extends StatefulWidget {
 }
 
 class _MainLayoutState extends State<MainLayout> {
-  String currentPage = "dashboard";
+  String currentPage = 'dashboard';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Row(
         children: [
-
-          /// SIDEBAR
           Sidebar(
             activePage: currentPage,
             onNavigate: (page) {
@@ -31,8 +30,6 @@ class _MainLayoutState extends State<MainLayout> {
               });
             },
           ),
-
-          /// MAIN CONTENT
           Expanded(
             child: Padding(
               padding: const EdgeInsets.only(left: 17),
@@ -49,38 +46,25 @@ class _MainLayoutState extends State<MainLayout> {
 
   Widget _buildPage() {
     switch (currentPage) {
-      case "dashboard":
+      case 'dashboard':
         return const Center(
           child: Text(
-            "Dashboard",
+            'Dashboard',
             style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
           ),
         );
-
-      case "log_history":
+      case 'log_history':
         return const AuditLogPage();
-
-      case "notifications":
+      case 'notifications':
         return const NotificationPage();
-
-      case "books":
+      case 'books':
         return const BooksPage();
-
-      case "members":
-        return const Center(
-          child: Text(
-            "Thành Viên",
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-          ),
-        );
-
-      case "borrowing":
+      case 'members':
+        return const ReadersPage();
+      case 'borrowing':
         return const BorrowPage();
-
       default:
-        return const Center(
-          child: Text("Page not found"),
-        );
+        return const Center(child: Text('Page not found'));
     }
   }
 }
