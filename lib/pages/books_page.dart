@@ -42,7 +42,6 @@ class _BooksPageState extends State<BooksPage> {
       }.toList()..sort();
 
   @override
-  @override
   void initState() {
     super.initState();
     _service = BookService();   

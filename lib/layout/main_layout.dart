@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_app/pages/dashboard_page.dart';
 
 import '../pages/audit_log_page.dart';
 import '../pages/books_page.dart';
@@ -47,12 +48,7 @@ class _MainLayoutState extends State<MainLayout> {
   Widget _buildPage() {
     switch (currentPage) {
       case 'dashboard':
-        return const Center(
-          child: Text(
-            'Dashboard',
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-          ),
-        );
+        return const DashboardPage();
       case 'log_history':
         return const AuditLogPage();
       case 'notifications':
