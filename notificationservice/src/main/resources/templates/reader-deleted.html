@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        .email-container {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            border: 1px solid #d1d8e0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .header {
+            background-color: #607d8b; /* Màu xanh xám trung tính */
+            color: #ffffff;
+            padding: 20px;
+            text-align: center;
+        }
+        .content {
+            padding: 30px;
+        }
+        .status-box {
+            background-color: #f8f9fa;
+            border-left: 5px solid #607d8b;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .book-title { /* Dùng lại class này cho tên tài khoản/email */
+            color: #2c3e50;
+            font-weight: bold;
+        }
+        .info-text {
+            color: #7f8c8d;
+            font-size: 0.95em;
+        }
+        .footer {
+            background-color: #f9f9f9;
+            padding: 15px;
+            text-align: center;
+            font-size: 0.8em;
+            color: #95a5a6;
+        }
+        .no-fee-tag {
+            display: inline-block;
+            background-color: #eceff1;
+            color: #455a64;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+<div class="email-container">
+    <div class="header">
+        <h2>Xác Nhận Xóa Tài Khoản</h2>
+    </div>
+
+    <div class="content">
+        <p>Chào <strong>{{readerName}}</strong>,</p>
+
+        <p>Chúng tôi gửi email này để xác nhận rằng tài khoản độc giả của bạn đã được <strong>xóa hoàn toàn</strong> khỏi hệ thống của thư viện theo yêu cầu hoặc do chính sách của chúng tôi.</p>
+
+        <div class="status-box">
+            <div class="book-title">Tài khoản: {{readerEmail}}</div>
+            <div class="info-text">Ngày thực hiện: {{deletionDate}}</div>
+            <div class="no-fee-tag">Trạng thái: Đã đóng</div>
+        </div>
+
+        <p>Mọi thông tin cá nhân liên quan đã được xử lý theo quy trình bảo mật và chính sách lưu trữ dữ liệu. Bạn sẽ không còn nhận được các thông báo tự động từ dịch vụ này nữa.</p>
+
+        <p>Chúng tôi rất tiếc khi phải chia tay bạn. Cảm ơn bạn đã đồng hành cùng thư viện trong thời gian qua. Nếu đây là một nhầm lẫn hoặc bạn muốn quay trở lại, bạn luôn có thể đăng ký tài khoản mới bất cứ lúc nào.</p>
+
+        <p>Trân trọng,<br>Đội ngũ Quản lý Thư viện</p>
+    </div>
+
+</div>
+</body>
+</html>

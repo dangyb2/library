@@ -5,6 +5,8 @@ import com.notificationservice.application.port.in.command.SendNotificationComma
 import com.notificationservice.application.port.out.NotificationDispatchPublisher;
 import com.notificationservice.application.port.out.NotificationRepository;
 import com.notificationservice.application.port.out.TemplateRenderer;
+import com.notificationservice.application.util.NotificationIdGenerator;
+import com.notificationservice.application.util.RenderedEmail;
 import com.notificationservice.domain.model.Notification;
 import org.springframework.stereotype.Service;
 

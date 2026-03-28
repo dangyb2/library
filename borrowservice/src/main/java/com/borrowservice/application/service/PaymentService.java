@@ -67,7 +67,7 @@ public class PaymentService extends BaseBorrowService implements PaymentUseCase 
 
         // 2. Gửi biên lai qua Email (Dành cho độc giả)
         notificationPort.sendNotification(
-                "PAYMENT", // Tên mẫu email biên lai thanh toán
+                "PAYMENT",
                 readerEmail,
                 Map.of(
                         "readerName", readerName,

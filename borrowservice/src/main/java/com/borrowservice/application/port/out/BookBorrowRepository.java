@@ -18,4 +18,8 @@ public interface BookBorrowRepository {
     Optional<Borrow> findByReaderIdAndBookIdAndStatus(String readerId, String bookId, Status status);
     boolean existsByReaderIdAndPaymentStatus(String readerId, PaymentStatus paymentStatus);
     long countByReaderIdAndStatus(String readerId, Status status);
+    List<Borrow> findBorrowsDueOn(LocalDate targetDate);
+    long countBorrowedOn(java.time.LocalDate date);
+    long countByStatus(com.borrowservice.domain.model.Status status);
 }
+

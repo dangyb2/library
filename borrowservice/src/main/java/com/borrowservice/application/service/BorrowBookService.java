@@ -20,10 +20,7 @@ import java.util.Optional;
 
 import static com.borrowservice.application.util.CurrencyFormatter.formatVND;
 
-/**
- * Dịch vụ xử lý nghiệp vụ mượn sách.
- * Đảm bảo tính toàn vẹn dữ liệu bằng @Transactional.
- */
+
 @Transactional
 public class BorrowBookService extends BaseBorrowService implements BorrowBookUseCase {
     private static final int MAX_BORROW_LIMIT = 5; // Giới hạn mượn tối đa 5 cuốn

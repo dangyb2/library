@@ -64,4 +64,5 @@ public class AuditLogController {
         int replayedCount = replayDeadLetterQueueUseCase.replay();
         return ResponseEntity.ok("Successfully replayed " + replayedCount + " messages from the DLT back into the main topic.");
     }
+
 }

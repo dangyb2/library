@@ -31,10 +31,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
-    /**
-     * Catches ALL domain-specific business rule violations.
-     * Examples: BorrowLimitExceededException, BookNotAvailableException, etc.
-     */
+
     @ExceptionHandler(BorrowDomainException.class)
     public ResponseEntity<ApiErrorResponse> handleDomainExceptions(BorrowDomainException ex) {
         log.warn("Domain rule violation: {}", ex.getMessage());
@@ -44,9 +41,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    /**
-     * Fallback for any other unexpected 500 Internal Server Errors.
-     */
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleGenericException(Exception ex) {
         log.error("CRITICAL UNHANDLED EXCEPTION: {}", ex.getMessage(), ex);

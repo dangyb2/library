@@ -1,5 +1,7 @@
 package com.readerservice.domain.model;
 
+import com.readerservice.domain.exception.ReaderValidationException;
+
 import java.util.regex.Pattern;
 
 /**
@@ -11,15 +13,15 @@ public record Email(String value) {
 
     public Email {
         if (value == null) {
-            throw new IllegalArgumentException("Email must not be null");
+            throw new ReaderValidationException("Email không được để trống");
         }
 
         String normalized = value.trim().toLowerCase();
         if (normalized.isEmpty()) {
-            throw new IllegalArgumentException("Email must not be blank");
+            throw new ReaderValidationException("Email không được để trống");
         }
         if (!EMAIL_PATTERN.matcher(normalized).matches()) {
-            throw new IllegalArgumentException("Email format is invalid");
+            throw new ReaderValidationException("Định dạng email không hợp lệ");
         }
 
         value = normalized;

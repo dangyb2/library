@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 public class JpaBorrowRepository implements BookBorrowRepository {
 
     private final SpringDataBorrowRepository repository;
+
     public JpaBorrowRepository(SpringDataBorrowRepository repository ) {
         this.repository = repository;
     }
@@ -31,10 +32,12 @@ public class JpaBorrowRepository implements BookBorrowRepository {
         BorrowEntity savedEntity = repository.save(entity);
         return BorrowMapper.toDomain(savedEntity);
     }
+
     @Override
     public boolean existsByReaderIdAndPaymentStatus(String readerId, PaymentStatus paymentStatus) {
         return repository.existsByReaderIdAndPaymentStatus(readerId, paymentStatus);
     }
+
     @Override
     public Optional<Borrow> findById(String borrowId) {
         return repository.findById(borrowId)
@@ -43,7 +46,7 @@ public class JpaBorrowRepository implements BookBorrowRepository {
 
     @Override
     public List<Borrow> findOverdueBorrows(LocalDate currentDate) {
-        return repository.findByStatusAndDueDateBefore(Status.BORROWED, currentDate)
+        return repository.findByStatus(Status.OVERDUE)
                 .stream()
                 .map(BorrowMapper::toDomain)
                 .collect(Collectors.toList());
@@ -64,14 +67,34 @@ public class JpaBorrowRepository implements BookBorrowRepository {
                 .map(BorrowMapper::toDomain)
                 .collect(Collectors.toList());
     }
+
     @Override
     public Optional<Borrow> findByReaderIdAndBookIdAndStatus(String readerId, String bookId, Status status) {
         return repository
                 .findByReaderIdAndBookIdAndStatus(readerId, bookId,status)
                 .map(BorrowMapper::toDomain);
     }
+
     @Override
     public long countByReaderIdAndStatus(String readerId, Status status) {
         return repository.countByReaderIdAndStatus(readerId, status);
+    }
+
+    @Override
+    public List<Borrow> findBorrowsDueOn(LocalDate targetDate) {
+        return repository.findByStatusAndDueDate(Status.BORROWED, targetDate)
+                .stream()
+                .map(BorrowMapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public long countBorrowedOn(LocalDate date) {
+        return repository.countByBorrowDate(date);
+    }
+
+    @Override
+    public long countByStatus(Status status) {
+        return repository.countByStatus(status);
     }
 }

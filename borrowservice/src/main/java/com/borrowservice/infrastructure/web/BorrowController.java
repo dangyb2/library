@@ -17,7 +17,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/borrows")
 public class BorrowController {
-
+    private final CheckActiveBorrowsUseCase checkActiveBorrowsUseCase;
     private final BorrowBookUseCase borrowBookUseCase;
     private final ReturnBookUseCase returnBookUseCase;
     private final ExtendBorrowTimeUseCase extendBorrowTimeUseCase;
@@ -32,7 +32,8 @@ public class BorrowController {
     private final UndoCancelBorrowUseCase undoCancelBorrowUseCase;
     private final ReturnBookPreviewUseCase previewUseCase;
     private final FoundLostBookUseCase foundLostBookUseCase;
-    public BorrowController(BorrowBookUseCase borrowBookUseCase, ReturnBookUseCase returnBookUseCase, ExtendBorrowTimeUseCase extendBorrowTimeUseCase, ReportBookLostUseCase reportBookLostUseCase, GetBorrowDetailsUseCase getBorrowDetailsUseCase, GetOverdueBorrowsUseCase getOverdueBorrowsUseCase, ListAllBorrowsUseCase listAllBorrowsUseCase, ListReaderBorrowsQuery listReaderBorrowsQuery, PaymentUseCase paymentUseCase, UpdateBorrowUseCase updateBorrowUseCase, CancelBorrowUseCase cancelBorrowUseCase, UndoCancelBorrowUseCase undoCancelBorrowUseCase, ReturnBookPreviewUseCase previewUseCase, FoundLostBookUseCase foundLostBookUseCase) {
+    public BorrowController(CheckActiveBorrowsUseCase checkActiveBorrowsUseCase, BorrowBookUseCase borrowBookUseCase, ReturnBookUseCase returnBookUseCase, ExtendBorrowTimeUseCase extendBorrowTimeUseCase, ReportBookLostUseCase reportBookLostUseCase, GetBorrowDetailsUseCase getBorrowDetailsUseCase, GetOverdueBorrowsUseCase getOverdueBorrowsUseCase, ListAllBorrowsUseCase listAllBorrowsUseCase, ListReaderBorrowsQuery listReaderBorrowsQuery, PaymentUseCase paymentUseCase, UpdateBorrowUseCase updateBorrowUseCase, CancelBorrowUseCase cancelBorrowUseCase, UndoCancelBorrowUseCase undoCancelBorrowUseCase, ReturnBookPreviewUseCase previewUseCase, FoundLostBookUseCase foundLostBookUseCase) {
+        this.checkActiveBorrowsUseCase = checkActiveBorrowsUseCase;
         this.borrowBookUseCase = borrowBookUseCase;
         this.returnBookUseCase = returnBookUseCase;
         this.extendBorrowTimeUseCase = extendBorrowTimeUseCase;
@@ -112,7 +113,11 @@ public class BorrowController {
         ));
     }
     // --- Read Operations (Queries) ---
-
+    @GetMapping("/reader/{readerId}/has-active")
+    public ResponseEntity<Boolean> hasActiveBorrowsOrFines(@PathVariable String readerId) {
+        boolean hasActive = checkActiveBorrowsUseCase.hasActiveBorrowsOrFines(readerId);
+        return ResponseEntity.ok(hasActive);
+    }
     @GetMapping("/{borrowId}")
     public ResponseEntity<BorrowDetailsView> getBorrowDetails(@PathVariable String borrowId) {
         BorrowDetailsView view = getBorrowDetailsUseCase.get(borrowId);

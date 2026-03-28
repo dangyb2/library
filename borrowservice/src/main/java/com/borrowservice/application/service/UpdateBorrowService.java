@@ -13,9 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Set;
 
-/**
- * Dịch vụ xử lý việc cập nhật hoặc hiệu chỉnh thông tin bản ghi mượn sách.
- */
+
 @Transactional
 public class UpdateBorrowService implements UpdateBorrowUseCase {
 

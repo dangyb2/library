@@ -5,7 +5,6 @@ spring:
   application:
     name: Book-Service
 
-  # Chuyển cấu hình encoding vào trong nhánh spring để tránh cảnh báo Deprecated
   servlet:
     encoding:
       charset: UTF-8
@@ -16,7 +15,6 @@ spring:
     encoding: UTF-8
 
   datasource:
-    # Đã có cờ sendStringParametersAsUnicode=true để SQL Server hiểu tiếng Việt
     url: ${SPRING_DATASOURCE_URL:jdbc:sqlserver://localhost:1433;databaseName=bookdb;encrypt=true;trustServerCertificate=true;sendStringParametersAsUnicode=true;}
     username: ${SPRING_DATASOURCE_USERNAME:sa}
     password: ${SPRING_DATASOURCE_PASSWORD:123}

@@ -14,13 +14,9 @@ public interface NotificationRepository {
     List<Notification> findFailed(int maxRetry, int limit);
 
     Optional<Notification> findById(String id);
-
-    List<Notification> search(
-            String id,
-            String recipientEmail,
-            NotificationType type,
-            NotificationStatus status,
-            Instant fromDate,
-            Instant toDate
-    );
+    List<Notification> findByStatus(NotificationStatus status);
+    List<Notification> findAll();
+    List<Notification> findByType(NotificationType type);
+    List<Notification> findByRecipientEmail(String email);
+    List<Notification> findByDateRange(Instant startDate, Instant endDate);
 }

@@ -8,7 +8,7 @@ public enum NotificationType {
     READER_UNSUSPENDED,
     MEMBERSHIP_EXPIRING,
     MEMBERSHIP_EXPIRED,
-
+    READER_DELETED,
     // Borrow Events
     BOOK_BORROWED,
     BOOK_RETURNED,
@@ -18,7 +18,6 @@ public enum NotificationType {
     FINE_GENERATED,
     PAYMENT,
 
-    // NEW Events we added today
     LOST_BOOK_REPORT,
     CANCEL_SUCCESS
 }

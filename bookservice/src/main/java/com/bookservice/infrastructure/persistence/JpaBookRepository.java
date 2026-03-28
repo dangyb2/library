@@ -27,7 +27,14 @@ public class JpaBookRepository implements BookRepository {
     public boolean existsByIsbn(String isbn) {
         return springDataRepository.existsByIsbn(isbn);
     }
-
+    @Override
+    public long countAll() {
+        return springDataRepository.count();
+    }
+    @Override
+    public long countLowStock(Long threshold) { // <-- Changed to Long
+        return springDataRepository.countByTotalStockLessThanEqual(threshold);
+    }
     @Override
     public Book save(Book book) {
         BookEntity entity = springDataRepository.findById(book.getId())

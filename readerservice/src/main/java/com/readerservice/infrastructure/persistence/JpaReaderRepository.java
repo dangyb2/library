@@ -4,22 +4,14 @@ import com.readerservice.application.port.out.ReaderRepository;
 import com.readerservice.domain.model.Email;
 import com.readerservice.domain.model.PhoneNumber;
 import com.readerservice.domain.model.Reader;
+import com.readerservice.domain.model.Status;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
-/**
- * JpaReaderRepository là Persistence Adapter.
- *
- * Vai trò:
- * - Triển khai ReaderRepository (Application Port)
- * - Sử dụng Spring Data JPA để truy cập database
- * - Chuyển đổi dữ liệu giữa Domain Entity và JPA Entity thông qua Mapper
- *
- * Lớp này giúp:
- * - Application layer không phụ thuộc Spring / JPA
- * - Domain giữ được sự thuần khiết (clean)
- */
+
 public class JpaReaderRepository implements ReaderRepository {
     private final SpringDataReaderRepository jpaRepos;
 
@@ -34,13 +26,23 @@ public class JpaReaderRepository implements ReaderRepository {
         return ReaderMapper.toDomain(saved);
     }
 
-    /**
-     * Tìm Reader theo id
-     */
+
     @Override
     public Optional<Reader> findById(String id) {
         return jpaRepos.findById(id)
                 .map(ReaderMapper::toDomain);
+    }
+
+    @Override
+    public List<Reader> findByIds(Set<String> ids) {
+        return jpaRepos.findAllById(ids).stream()
+                .map(ReaderMapper::toDomain)
+                .toList();
+    }
+
+    @Override
+    public void deleteById(String id) {
+        jpaRepos.deleteById(id);
     }
 
     /**
@@ -81,5 +83,18 @@ public class JpaReaderRepository implements ReaderRepository {
                 .toList();
     }
 
+    @Override
+    public List<Reader> findByStatus(Status status) {
+        return jpaRepos.findByStatus(status).stream()
+                .map(ReaderMapper::toDomain)
+                .toList();
+    }
+    @Override
+    public List<Reader> findByMembershipExpireAt(LocalDate date) {
+        return jpaRepos.findByMembershipExpireAt(date)
+                .stream()
+                .map(ReaderMapper::toDomain)
+                .toList();
+    }
 
 }

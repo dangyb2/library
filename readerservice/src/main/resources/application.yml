@@ -1,6 +1,8 @@
 spring:
   application:
     name: Reader Service
+  messages:
+    encoding: UTF-8
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:sqlserver://localhost:1433;databaseName=readerdb;encrypt=true;trustServerCertificate=true;}
     username: ${SPRING_DATASOURCE_USERNAME:sa}
@@ -21,5 +23,19 @@ spring:
     baseline-on-migrate: true
     baseline-version: 0
     validate-on-migrate: true
+
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+reader:
+  membership:
+    expiring-days: ${READER_MEMBERSHIP_EXPIRING_DAYS:3}
+    reminder-cron: ${READER_MEMBERSHIP_REMINDER_CRON:0 0 8 * * *}
+
 server:
   port: 8081
+borrow-service:
+  url: ${BORROW_SERVICE_URL:http://host.docker.internal:8083}

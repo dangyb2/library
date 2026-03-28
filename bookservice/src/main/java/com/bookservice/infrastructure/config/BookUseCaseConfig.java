@@ -101,4 +101,5 @@ public class BookUseCaseConfig {
     public RestoreBookUseCase restoreBookUseCase(BookRepository bookRepository, AuditMessagePort auditMessagePort) {
         return new RestoreBookService(bookRepository, auditMessagePort);
     }
+
 }

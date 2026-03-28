@@ -1,32 +1,54 @@
 package com.readerservice.application.service;
 
 import com.readerservice.application.port.in.UnsuspendReaderUseCase;
+import com.readerservice.application.port.out.AuditMessagePort;
+import com.readerservice.application.port.out.NotificationPort;
 import com.readerservice.application.port.out.ReaderRepository;
+import com.readerservice.domain.exception.ReaderNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Application Service triển khai use case "Gỡ đình chỉ độc giả".
- *
- * Lớp này không chứa logic nghiệp vụ chi tiết,
- * mà chỉ điều phối các thành phần trong hệ thống.
- */
+import java.util.Map;
+
 public class UnsuspendReaderService implements UnsuspendReaderUseCase {
+    private static final Logger log = LoggerFactory.getLogger(UnsuspendReaderService.class);
 
     private final ReaderRepository readerRepository;
+    private final AuditMessagePort auditMessagePort;
+    private final NotificationPort notificationPort;
 
-    public UnsuspendReaderService(ReaderRepository readerRepository) {
+    public UnsuspendReaderService(ReaderRepository readerRepository,
+                                  AuditMessagePort auditMessagePort,
+                                  NotificationPort notificationPort) {
         this.readerRepository = readerRepository;
+        this.auditMessagePort = auditMessagePort;
+        this.notificationPort = notificationPort;
     }
 
     @Override
+    @Transactional
     public void unsuspend(String id) {
-        // Tìm độc giả theo id
+        log.info("Bắt đầu gỡ đình chỉ độc giả id={}", id);
+
         var reader = readerRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Reader not found"));
+                .orElseThrow(() -> new ReaderNotFoundException("id: " + id));
 
-        // Gỡ bỏ trạng thái đình chỉ trong Domain
         reader.unsuspend();
+        var saved = readerRepository.save(reader);
 
-        // Lưu lại trạng thái mới
-        readerRepository.save(reader);
+        auditMessagePort.sendReaderEvent(
+                "READER_UNSUSPENDED",
+                saved.getId(),
+                "Độc giả đã được gỡ đình chỉ"
+        );
+
+        notificationPort.sendNotification(
+                "READER_UNSUSPENDED",
+                saved.getEmail().value(),
+                Map.of("readerName", saved.getName())
+        );
+
+        log.info("Gỡ đình chỉ thành công cho độc giả id={}", saved.getId());
     }
 }

@@ -1,59 +1,49 @@
-HELP.md
-target/
-.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
+# --- Project Documentation ---
+# We comment out HELP.md so it IS tracked (usually helpful for teammates)
+# HELP.md
 
-# AI models and large files
+# --- Build & Artifacts ---
+target/
+build/
+out/
+bin/
+*.log
+
+# Ignore all JARs...
+*.jar
+*.war
+# ...EXCEPT the Maven wrapper (crucial for builds to work for others)
+! .mvn/wrapper/maven-wrapper.jar
+
+# --- AI Models & Large Files ---
 *.pth
 *.pt
 *.bin
 *.model
 *.onnx
 
-# JARs and build outputs
-*.jar
-*.war
-*.log
-
-# Python cache
+# --- Python ---
 __pycache__/
 *.pyc
 
-# IntelliJ / IDE
+# --- IDEs & Editors ---
 .idea/
 *.iws
 *.iml
 *.ipr
-
-# OS
-.DS_Store
-Thumbs.db
-
-### STS ###
-.apt_generated
+.vscode/
 .classpath
-.factorypath
 .project
-.settings
+.settings/
+.factorypath
 .springBeans
 .sts4-cache
-
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
-
-### NetBeans ###
 /nbproject/private/
 /nbbuild/
 /dist/
 /nbdist/
 /.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
 
-### VS Code ###
-.vscode/
+# --- OS Specific ---
+.DS_Store
+Thumbs.db

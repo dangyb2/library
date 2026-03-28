@@ -1,9 +1,11 @@
 package com.readerservice.infrastructure.persistence;
 
+import com.readerservice.domain.model.Status;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -32,4 +34,6 @@ public interface SpringDataReaderRepository
     List<ReaderEntity> findByNameContainingIgnoreCase(String key);
 
     Page<ReaderEntity> findByNameContainingIgnoreCase(String key, Pageable pageable);
+    List<ReaderEntity> findByMembershipExpireAt(LocalDate date);
+    List<ReaderEntity> findByStatus(Status status);
 }

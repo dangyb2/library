@@ -20,4 +20,6 @@ public interface BookRepository {
     List<BookTitleProjection> findByIdIn(Set<String> ids);
     List<Book> findAllDeletedBooks();
     int restoreBookById(String id);
+    long countAll();
+    long countLowStock(Long threshold);
 }

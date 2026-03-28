@@ -2,7 +2,7 @@ package com.notificationservice.infrastructure.email;
 
 import com.notificationservice.domain.exception.TemplateLoadException;
 import com.notificationservice.application.port.out.TemplateRenderer;
-import com.notificationservice.application.service.RenderedEmail;
+import com.notificationservice.application.util.RenderedEmail;
 import com.notificationservice.domain.model.NotificationType;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;

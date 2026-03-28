@@ -1,5 +1,7 @@
 package com.readerservice.domain.model;
 
+import com.readerservice.domain.exception.ReaderValidationException;
+
 import java.util.regex.Pattern;
 
 /**
@@ -10,7 +12,7 @@ public record PhoneNumber(String value) {
 
     public PhoneNumber {
         if (value == null) {
-            throw new IllegalArgumentException("Phone number must not be null");
+            throw new ReaderValidationException("Số điện thoại không được để trống");
         }
 
         String normalized = value.trim()
@@ -22,10 +24,10 @@ public record PhoneNumber(String value) {
         }
 
         if (normalized.isEmpty()) {
-            throw new IllegalArgumentException("Phone number must not be blank");
+            throw new ReaderValidationException("Số điện thoại không được để trống");
         }
         if (!PHONE_PATTERN.matcher(normalized).matches()) {
-            throw new IllegalArgumentException("Phone number format is invalid");
+            throw new ReaderValidationException("Định dạng số điện thoại không hợp lệ");
         }
 
         value = normalized;

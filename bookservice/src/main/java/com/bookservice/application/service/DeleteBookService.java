@@ -28,9 +28,7 @@ public class DeleteBookService implements DeleteBookUseCase {
         Book book = repository.findById(bookId)
                 .orElseThrow(() -> new BookNotFoundException(bookId));
 
-        // 2. Quy tắc nghiệp vụ: Không xóa sách khi vẫn còn người đang mượn!
-        // Kiểm tra: Nếu số lượng sẵn có (Available Stock) không bằng tổng số lượng (Total Stock),
-        // nghĩa là có ít nhất một cuốn đang nằm trong tay độc giả.
+
         if (!book.getAvailableStock().equals(book.getTotalStock())) {
             throw new BookCurrentlyBorrowedException(bookId);
         }

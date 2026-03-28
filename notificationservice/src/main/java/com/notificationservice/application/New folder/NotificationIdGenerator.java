@@ -1,4 +1,4 @@
-package com.notificationservice.application.service;
+package com.notificationservice.application.util;
 
 import org.springframework.stereotype.Component;
 

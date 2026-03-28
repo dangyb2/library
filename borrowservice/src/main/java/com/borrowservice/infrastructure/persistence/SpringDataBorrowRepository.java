@@ -15,5 +15,8 @@ public interface SpringDataBorrowRepository extends JpaRepository<BorrowEntity, 
     Optional<BorrowEntity> findByReaderIdAndBookIdAndStatus(String readerId, String bookId,Status status);
     boolean existsByReaderIdAndPaymentStatus(String readerId, PaymentStatus paymentStatus);
     long countByReaderIdAndStatus(String readerId, Status status);
-
+    List<BorrowEntity> findByStatusAndDueDate(Status status, LocalDate dueDate);
+    long countByBorrowDate(LocalDate date);
+    long countByStatus(Status status);
+    List<BorrowEntity> findByStatus(Status status);
 }

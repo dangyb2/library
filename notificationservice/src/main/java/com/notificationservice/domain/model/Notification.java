@@ -1,5 +1,7 @@
 package com.notificationservice.domain.model;
 
+import com.notificationservice.domain.exception.InvalidNotificationStateException;
+
 import java.time.Instant;
 import java.util.Objects;
 
@@ -83,15 +85,18 @@ public class Notification {
 
     public void markSent(Instant sentAt) {
         if (this.status == NotificationStatus.SENT) {
-            throw new IllegalStateException("Notification is already sent");
+            // 🚀 Use your new custom Domain Exception!
+            throw new InvalidNotificationStateException("Cannot mark as sent: Notification is already in SENT status.");
         }
         this.status = NotificationStatus.SENT;
         this.sentAt = sentAt;
     }
     public void markFailed() {
+        if (this.status == NotificationStatus.SENT) {
+            throw new InvalidNotificationStateException("Cannot fail a notification that has already been sent.");
+        }
         this.status = NotificationStatus.FAILED;
     }
-
     public void incrementRetry() {
         this.retryCount += 1;
     }

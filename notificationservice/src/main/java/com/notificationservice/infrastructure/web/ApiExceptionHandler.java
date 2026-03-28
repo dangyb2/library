@@ -1,10 +1,6 @@
 package com.notificationservice.infrastructure.web;
 
-import com.notificationservice.domain.exception.InvalidDateRangeException;
-import com.notificationservice.domain.exception.NotificationNotFoundException;
-import com.notificationservice.domain.exception.NotificationPublishException;
-import com.notificationservice.domain.exception.TemplateLoadException;
-import com.notificationservice.domain.exception.TemplateNotFoundException;
+import com.notificationservice.domain.exception.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -38,6 +34,11 @@ public class ApiExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, message, ex);
     }
 
+
+    @ExceptionHandler(InvalidNotificationStateException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidState(InvalidNotificationStateException ex) {
+        return build(HttpStatus.CONFLICT, safeMessage(ex), ex);
+    }
     @ExceptionHandler(InvalidDateRangeException.class)
     public ResponseEntity<ApiErrorResponse> handleInvalidDateRange(InvalidDateRangeException ex) {
         return build(HttpStatus.BAD_REQUEST, safeMessage(ex), ex);
@@ -45,9 +46,8 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(TemplateNotFoundException.class)
     public ResponseEntity<ApiErrorResponse> handleTemplateNotFound(TemplateNotFoundException ex) {
-        return build(HttpStatus.BAD_REQUEST, safeMessage(ex), ex);
+        return build(HttpStatus.INTERNAL_SERVER_ERROR, "Required email template is missing on the server", ex);
     }
-
     @ExceptionHandler(TemplateLoadException.class)
     public ResponseEntity<ApiErrorResponse> handleTemplateLoad(TemplateLoadException ex) {
         return build(HttpStatus.INTERNAL_SERVER_ERROR, safeMessage(ex), ex);

@@ -178,4 +178,20 @@ public class BorrowUseCaseConfig {
             AuditMessagePort auditMessagePort) {
         return new UndoCancelBorrowService(bookBorrowRepository, bookCatalogPort, auditMessagePort);
     }
+    @Bean
+    public RemindApproachingDueDateUseCase remindApproachingDueDateUseCase(
+            BookBorrowRepository bookBorrowRepository,
+            NotificationPort notificationPort,
+            ReaderRegistryPort readerRegistryPort) {
+        return new RemindApproachingDueDateService(
+                bookBorrowRepository,
+                notificationPort,
+                readerRegistryPort
+        );
+    }
+    @Bean
+    CheckActiveBorrowsUseCase checkActiveBorrowsUseCase(BookBorrowRepository repository) {
+        return new CheckActiveBorrowsService(repository);
+    }
+
 }

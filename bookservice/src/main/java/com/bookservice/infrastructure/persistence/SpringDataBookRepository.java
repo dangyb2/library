@@ -38,4 +38,6 @@ public interface SpringDataBookRepository extends JpaRepository<BookEntity, Stri
     @Modifying
     @Query(value = "UPDATE books SET is_deleted = 0 WHERE id = :id", nativeQuery = true)
     int restoreBookById(@Param("id") String id);
+    // Change this line at the bottom:
+    Long countByTotalStockLessThanEqual(Long threshold);
 }

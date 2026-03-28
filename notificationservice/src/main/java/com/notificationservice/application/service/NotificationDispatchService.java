@@ -3,6 +3,7 @@ package com.notificationservice.application.service;
 import com.notificationservice.application.port.in.DispatchNotificationUseCase;
 import com.notificationservice.application.port.out.EmailSender;
 import com.notificationservice.application.port.out.NotificationRepository;
+import com.notificationservice.domain.exception.NotificationPublishException;
 import com.notificationservice.domain.model.Notification;
 import com.notificationservice.domain.model.NotificationStatus;
 import org.slf4j.Logger;
@@ -71,17 +72,16 @@ public class NotificationDispatchService implements DispatchNotificationUseCase 
             notification.markSent(clock.instant());
             log.info("Successfully sent notification {}", notificationId);
 
-        } catch (Exception ex) {
-            // 5. Error Handling
+            // 🚀 ONLY catch the specific exception related to sending failures!
+        } catch (NotificationPublishException ex) {
+            // 5. Error Handling for Delivery Failures
             notification.incrementRetry();
             notification.markFailed();
 
-            log.warn("Failed to send notification {} (Attempt {}/{}): {}",
+            log.warn("Failed to deliver notification {} (Attempt {}/{}): {}",
                     notificationId, notification.getRetryCount(), maxAttempts, ex.getMessage());
         }
 
-        // 6. Persistence
-        // Transactional context will handle the update, but explicit save is clearer
         notificationRepository.save(notification);
     }
 }
