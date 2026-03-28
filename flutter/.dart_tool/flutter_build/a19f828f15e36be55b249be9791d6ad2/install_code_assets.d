@@ -1,0 +1,1 @@
+ D:\\Programs\\Dev\\IntelliJ\\projects\\library\\flutter\\.dart_tool\\flutter_build\\a19f828f15e36be55b249be9791d6ad2\\native_assets.json: 

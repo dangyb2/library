@@ -47,3 +47,6 @@ __pycache__/
 # --- OS Specific ---
 .DS_Store
 Thumbs.db
+# Maven local repository/cache
+.m2/
+**/ .m2/
