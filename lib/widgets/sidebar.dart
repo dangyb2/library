@@ -3,11 +3,14 @@ import 'package:flutter/material.dart';
 class Sidebar extends StatefulWidget {
   final String activePage;
   final Function(String) onNavigate;
+  /// Khi true: sidebar bị khoá ở trạng thái thu gọn (do màn hình nhỏ / chia đôi)
+  final bool collapsed;
 
   const Sidebar({
     super.key,
     required this.activePage,
     required this.onNavigate,
+    this.collapsed = false,
   });
 
   @override
@@ -15,10 +18,37 @@ class Sidebar extends StatefulWidget {
 }
 
 class _SidebarState extends State<Sidebar> {
-  bool collapsed = false;
+  /// true = do người dùng bấm toggle; false = do screen nhỏ (forced)
+  bool _userCollapsed = false;
   bool showLabels = true;
   bool hoverToggle = false;
   String? hoveredId;
+
+  /// Sidebar thực sự thu gọn khi một trong hai điều kiện đúng
+  bool get _isCollapsed => widget.collapsed || _userCollapsed;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.collapsed) showLabels = false;
+  }
+
+  @override
+  void didUpdateWidget(Sidebar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Khi screen thay đổi kích thước → sync showLabels
+    if (oldWidget.collapsed != widget.collapsed) {
+      if (widget.collapsed) {
+        // Màn hình thu nhỏ: ẩn label ngay lập tức
+        setState(() => showLabels = false);
+      } else if (!_userCollapsed) {
+        // Màn hình mở rộng trở lại và user chưa tự collapse: hiện label
+        Future.delayed(const Duration(milliseconds: 220), () {
+          if (mounted && !_isCollapsed) setState(() => showLabels = true);
+        });
+      }
+    }
+  }
 
   final List<Map<String, dynamic>> navItems = [
     {"id": "dashboard", "label": "Tổng Quát", "icon": Icons.dashboard_outlined},
@@ -38,7 +68,7 @@ class _SidebarState extends State<Sidebar> {
         /// SIDEBAR
         AnimatedContainer(
           duration: const Duration(milliseconds: 250),
-          width: collapsed ? 80 : 250,
+          width: _isCollapsed ? 80 : 250,
           decoration: const BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
@@ -66,49 +96,50 @@ class _SidebarState extends State<Sidebar> {
           ),
         ),
 
-        /// TOGGLE BUTTON
-        Positioned(
-          right: -15,
-          top: 24,
-          child: Material(
-            color: Colors.transparent,
-            shape: const CircleBorder(),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onHover: (value) {
-                setState(() {
-                  hoverToggle = value;
-                });
-              },
-              onTap: _toggleSidebar,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 160),
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: hoverToggle
-                      ? const Color(0xFF5B52F5)
-                      : const Color(0xFF4F46E5),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 3),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: hoverToggle ? 10 : 8,
-                      offset: Offset(0, 3),
-                    )
-                  ],
-                ),
-                child: Icon(
-                  collapsed ? Icons.chevron_right : Icons.chevron_left,
-                  color: Colors.white,
-                  size: 18,
+        /// TOGGLE BUTTON — ẩn khi bị khoá bởi screen size
+        if (!widget.collapsed)
+          Positioned(
+            right: -15,
+            top: 24,
+            child: Material(
+              color: Colors.transparent,
+              shape: const CircleBorder(),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onHover: (value) {
+                  setState(() {
+                    hoverToggle = value;
+                  });
+                },
+                onTap: _toggleSidebar,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: hoverToggle
+                        ? const Color(0xFF5B52F5)
+                        : const Color(0xFF4F46E5),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 3),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black26,
+                        blurRadius: hoverToggle ? 10 : 8,
+                        offset: Offset(0, 3),
+                      )
+                    ],
+                  ),
+                  child: Icon(
+                    _isCollapsed ? Icons.chevron_right : Icons.chevron_left,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                 ),
               ),
             ),
-          ),
-        )
+          )
       ],
     );
   }
@@ -233,12 +264,12 @@ Widget _navItem(Map<String, dynamic> item) {
   }
 
   void _toggleSidebar() {
-    if (collapsed) {
+    if (_userCollapsed) {
       setState(() {
-        collapsed = false;
+        _userCollapsed = false;
       });
       Future.delayed(const Duration(milliseconds: 220), () {
-        if (!mounted || collapsed) return;
+        if (!mounted || _isCollapsed) return;
         setState(() {
           showLabels = true;
         });
@@ -246,7 +277,7 @@ Widget _navItem(Map<String, dynamic> item) {
     } else {
       setState(() {
         showLabels = false;
-        collapsed = true;
+        _userCollapsed = true;
       });
     }
   }

@@ -192,7 +192,10 @@ class _NotificationPageState extends State<NotificationPage>
 
   // ── table columns ──────────────────────────
 
-  List<AppTableColumn<NotificationSummaryView>> get _columns => [
+  List<AppTableColumn<NotificationSummaryView>> _buildColumns({
+    required bool narrow,
+    required bool veryNarrow,
+  }) => [
     AppTableColumn(
       label: 'Email nhận',
       flex: 3,
@@ -222,7 +225,7 @@ class _NotificationPageState extends State<NotificationPage>
     ),
     AppTableColumn(
       label: 'Loại',
-      flex: 3,
+      flex: narrow ? 2 : 3,
       builder: (n) => _TypeBadge(type: n.type),
     ),
     AppTableColumn(
@@ -233,36 +236,42 @@ class _NotificationPageState extends State<NotificationPage>
       builder: (n) => _StatusBadge(status: n.status),
     ),
 
-    AppTableColumn(
-      label: 'Thời gian tạo',
-      flex: 3,
-      sortable: true,
-      sortKey: 'createdAt',
-      builder: (n) => Text(
-        _dtFormat.format(n.createdAt.toLocal()),
-        style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
-        overflow: TextOverflow.ellipsis,
-      ),
-    ),
-    AppTableColumn(
-      label: 'Đã gửi lúc',
-      flex: 3,
-      sortable: true,
-      sortKey: 'sentAt',
-      builder: (n) => Text(
-        n.sentAt != null ? _dtFormat.format(n.sentAt!.toLocal()) : '—',
-        style: TextStyle(
-          fontSize: 13,
-          color: n.sentAt != null
-              ? const Color(0xFF16A34A)
-              : const Color(0xFFD1D5DB),
+    // Ẩn "Thời gian tạo" khi rất hẹp
+    if (!veryNarrow)
+      AppTableColumn(
+        label: 'Thời gian tạo',
+        flex: 2,
+        sortable: true,
+        sortKey: 'createdAt',
+        builder: (n) => Text(
+          _dtFormat.format(n.createdAt.toLocal()),
+          style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+          overflow: TextOverflow.ellipsis,
         ),
-        overflow: TextOverflow.ellipsis,
       ),
-    ),
+
+    // Ẩn "Đã gửi lúc" khi hẹp
+    if (!narrow)
+      AppTableColumn(
+        label: 'Đã gửi lúc',
+        flex: 3,
+        sortable: true,
+        sortKey: 'sentAt',
+        builder: (n) => Text(
+          n.sentAt != null ? _dtFormat.format(n.sentAt!.toLocal()) : '—',
+          style: TextStyle(
+            fontSize: 13,
+            color: n.sentAt != null
+                ? const Color(0xFF16A34A)
+                : const Color(0xFFD1D5DB),
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+
     AppTableColumn(
       label: 'Thao tác',
-      fixedWidth: 100,
+      fixedWidth: narrow ? 60 : 100,
       builder: (n) => Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -334,7 +343,9 @@ class _NotificationPageState extends State<NotificationPage>
 
   Widget _buildContent() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(28),
+      padding: EdgeInsets.all(
+        MediaQuery.sizeOf(context).width < 700 ? 16 : 28,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -371,7 +382,7 @@ class _NotificationPageState extends State<NotificationPage>
 
           const SizedBox(height: 24),
 
-          // ── Stat Cards ────────────────────────
+          // ── Stat Cards (giống audit log: luôn xếp hàng ngang) ──
           Row(
             children: [
               Expanded(
@@ -406,9 +417,8 @@ class _NotificationPageState extends State<NotificationPage>
                   color: const Color(0xFFF59E0B),
                   subtitle: 'Chờ xử lý',
                   onTap: () => setState(() {
-                    _statusFilter = _statusFilter == 'PENDING'
-                        ? null
-                        : 'PENDING';
+                    _statusFilter =
+                        _statusFilter == 'PENDING' ? null : 'PENDING';
                     _applyFilter();
                   }),
                 ),
@@ -422,7 +432,8 @@ class _NotificationPageState extends State<NotificationPage>
                   color: const Color(0xFFDC2626),
                   subtitle: 'Cần gửi lại',
                   onTap: () => setState(() {
-                    _statusFilter = _statusFilter == 'FAILED' ? null : 'FAILED';
+                    _statusFilter =
+                        _statusFilter == 'FAILED' ? null : 'FAILED';
                     _applyFilter();
                   }),
                 ),
@@ -433,62 +444,85 @@ class _NotificationPageState extends State<NotificationPage>
           const SizedBox(height: 24),
 
           // ── Toolbar ───────────────────────────
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                flex: 3,
-                child: SearchBarWidget(
-                  hintText: 'Tìm theo email, tiêu đề...',
-                  suggestions: _searchSuggestions,
-                  onChanged: (v) {
-                    _search = v;
-                    _applyFilter();
-                  },
-                  onSelect: (v) {
-                    _search = v;
-                    _applyFilter();
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              FilterPopup(
-                label: 'Trạng thái',
-                selected: _statusFilter,
-                searchable: false,
-                items: const {
-                  'SENT': 'Đã gửi',
-                  'PENDING': 'Đang chờ',
-                  'FAILED': 'Thất bại',
-                },
-                onChanged: (v) => setState(() {
-                  _statusFilter = v;
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final narrow = constraints.maxWidth < 700;
+
+              final searchBar = SearchBarWidget(
+                hintText: 'Tìm theo email, tiêu đề...',
+                suggestions: _searchSuggestions,
+                onChanged: (v) {
+                  _search = v;
                   _applyFilter();
-                }),
-              ),
-              const SizedBox(width: 10),
-              FilterPopup(
-                label: 'Loại thông báo',
-                selected: _typeFilter,
-                searchable: true,
-                items: {
-                  for (final t in NotificationType.values.where(
-                    (type) => type != NotificationType.UNKNOWN,
-                  ))
-                    t.value: t.label,
                 },
-                onChanged: (v) => setState(() {
-                  _typeFilter = v;
+                onSelect: (v) {
+                  _search = v;
                   _applyFilter();
-                }),
-              ),
-              const SizedBox(width: 8),
-              AppIconButton(
-                icon: Icons.refresh_rounded,
-                onPressed: _loadData,
-                tooltip: 'Tải lại',
-              ),
-            ],
+                },
+              );
+
+              final filters = Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FilterPopup(
+                    label: 'Trạng thái',
+                    selected: _statusFilter,
+                    searchable: false,
+                    items: const {
+                      'SENT': 'Đã gửi',
+                      'PENDING': 'Đang chờ',
+                      'FAILED': 'Thất bại',
+                    },
+                    onChanged: (v) => setState(() {
+                      _statusFilter = v;
+                      _applyFilter();
+                    }),
+                  ),
+                  const SizedBox(width: 10),
+                  FilterPopup(
+                    label: 'Loại thông báo',
+                    selected: _typeFilter,
+                    searchable: true,
+                    items: {
+                      for (final t in NotificationType.values.where(
+                        (type) => type != NotificationType.UNKNOWN,
+                      ))
+                        t.value: t.label,
+                    },
+                    onChanged: (v) => setState(() {
+                      _typeFilter = v;
+                      _applyFilter();
+                    }),
+                  ),
+                  const SizedBox(width: 8),
+                  AppIconButton(
+                    icon: Icons.refresh_rounded,
+                    onPressed: _loadData,
+                    tooltip: 'Tải lại',
+                  ),
+                ],
+              );
+
+              if (narrow) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    searchBar,
+                    const SizedBox(height: 10),
+                    filters,
+                  ],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(flex: 3, child: searchBar),
+                  const SizedBox(width: 12),
+                  filters,
+                ],
+              );
+            },
           ),
 
           const SizedBox(height: 6),
@@ -504,18 +538,24 @@ class _NotificationPageState extends State<NotificationPage>
           ),
 
           // ── Table ─────────────────────────────
-          AppTable<NotificationSummaryView>(
-            rows: _filtered,
-            columns: _columns,
-            emptyMessage: _search.isNotEmpty
-                ? 'Không tìm thấy thông báo phù hợp với "$_search"'
-                : 'Chưa có thông báo nào',
-            cellValue: (n, key) => switch (key) {
-              'email' => n.recipientEmail,
-              'status' => n.status.index,
-              'createdAt' => n.createdAt,
-              'sentAt' => n.sentAt ?? DateTime(0),
-              _ => '',
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final narrow = constraints.maxWidth < 700;
+              final veryNarrow = constraints.maxWidth < 500;
+              return AppTable<NotificationSummaryView>(
+                rows: _filtered,
+                columns: _buildColumns(narrow: narrow, veryNarrow: veryNarrow),
+                emptyMessage: _search.isNotEmpty
+                    ? 'Không tìm thấy thông báo phù hợp với "$_search"'
+                    : 'Chưa có thông báo nào',
+                cellValue: (n, key) => switch (key) {
+                  'email' => n.recipientEmail,
+                  'status' => n.status.index,
+                  'createdAt' => n.createdAt,
+                  'sentAt' => n.sentAt ?? DateTime(0),
+                  _ => '',
+                },
+              );
             },
           ),
 
@@ -549,7 +589,7 @@ class _NotificationDetailModal extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppModal(
       controller: controller,
-      width: 620,
+      width: (MediaQuery.sizeOf(context).width * 0.9).clamp(320, 620),
       header: AppModalHeader(
         icon: Icons.email_outlined,
         title: 'Chi tiết thông báo',
@@ -981,6 +1021,7 @@ class _StatusBadge extends StatelessWidget {
     );
   }
 }
+
 // ─────────────────────────────────────────────
 //  _ActionIconBtn — nút icon nhỏ có hover
 // ─────────────────────────────────────────────

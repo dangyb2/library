@@ -18,13 +18,20 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> {
   String currentPage = 'dashboard';
 
+  // Sidebar tự động thu gọn khi chiều rộng màn hình < 900px (chia đôi màn hình)
+  static const double _collapseBreakpoint = 900;
+
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final sidebarCollapsed = screenWidth < _collapseBreakpoint;
+
     return Scaffold(
       body: Row(
         children: [
           Sidebar(
             activePage: currentPage,
+            collapsed: sidebarCollapsed,
             onNavigate: (page) {
               setState(() {
                 currentPage = page;

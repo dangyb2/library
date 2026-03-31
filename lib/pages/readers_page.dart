@@ -252,81 +252,129 @@ class _ReadersPageState extends State<ReadersPage> {
   //  Table columns
   // ─────────────────────────────────────────────────────────────
 
-  List<AppTableColumn<ReaderView>> get _columns => [
-        AppTableColumn(
-          label: 'Họ tên / Email',
-          flex: 3,
-          sortable: true,
-          sortKey: 'name',
-          builder: (r) => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(r.name,
-                  style: const TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF111827)),
-                  overflow: TextOverflow.ellipsis),
-              const SizedBox(height: 2),
-              Text(r.email,
-                  style: const TextStyle(
-                      fontSize: 12, color: Color(0xFF9CA3AF)),
-                  overflow: TextOverflow.ellipsis),
-            ],
+  // AppTable padding nội bộ: horizontal 20px × 2 = 40px.
+  // _buildRowActions: 5 icon × 30px + 4 gap × 4px = 166px.
+  //
+  // tableWidth = width widget của AppTable − 40px padding nội bộ.
+  //   narrow  (tableWidth < 380): Họ tên + icon ⋮
+  //   compact (tableWidth < 620): Họ tên + Trạng thái + Thao tác (166px)
+  //   wide   (tableWidth ≥ 620):  đủ cột
+  List<AppTableColumn<ReaderView>> _buildColumns(double width) {
+    final tableWidth = width - 40;
+    final isNarrow  = tableWidth < 380;
+    final isCompact = tableWidth < 620;
+
+    final nameCol = AppTableColumn<ReaderView>(
+      label: 'Họ tên / Email',
+      flex: 3,
+      sortable: true,
+      sortKey: 'name',
+      builder: (r) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(r.name,
+              style: TextStyle(
+                  fontSize: isNarrow ? 13.0 : 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF111827)),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1),
+          const SizedBox(height: 2),
+          Text(r.email,
+              style: TextStyle(
+                  fontSize: isNarrow ? 11.0 : 12.0,
+                  color: const Color(0xFF9CA3AF)),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1),
+        ],
+      ),
+    );
+
+    final statusCol = AppTableColumn<ReaderView>(
+      label: 'Trạng thái',
+      flex: 2,
+      sortable: true,
+      sortKey: 'status',
+      builder: (r) => _ReaderStatusBadge(reader: r),
+    );
+
+    if (isNarrow) {
+      return [
+        nameCol,
+        AppTableColumn<ReaderView>(
+          label: '',
+          fixedWidth: 30,
+          builder: (r) => GestureDetector(
+            onTap: () => _openDetail(r),
+            child: const Icon(Icons.more_vert_rounded,
+                size: 18, color: Color(0xFF6B7280)),
           ),
         ),
-        AppTableColumn(
-          label: 'Số điện thoại',
-          flex: 2,
-          builder: (r) => Text(r.phone,
-              style: const TextStyle(
-                  fontSize: 13, color: Color(0xFF374151))),
-        ),
-        AppTableColumn(
-          label: 'Hạn thẻ',
-          flex: 2,
-          sortable: true,
-          sortKey: 'expiry',
-          builder: (r) {
-            final expired = r.isMembershipExpired;
-            return Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (expired)
-                  const Padding(
-                    padding: EdgeInsets.only(right: 4),
-                    child: Icon(Icons.warning_amber_rounded,
-                        size: 13, color: Color(0xFFDC2626)),
-                  ),
-                Text(
-                  _dateFormat.format(r.membershipExpireAt),
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: expired
-                        ? const Color(0xFFDC2626)
-                        : const Color(0xFF6B7280),
-                    fontWeight:
-                        expired ? FontWeight.w600 : FontWeight.w400,
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-        AppTableColumn(
-          label: 'Trạng thái',
-          flex: 2,
-          sortable: true,
-          sortKey: 'status',
-          builder: (r) => _ReaderStatusBadge(reader: r),
-        ),
-        AppTableColumn(
+      ];
+    }
+
+    if (isCompact) {
+      return [
+        nameCol,
+        statusCol,
+        AppTableColumn<ReaderView>(
           label: 'Thao tác',
-          fixedWidth: 200,
+          fixedWidth: 166,
           builder: (r) => _buildRowActions(r),
         ),
       ];
+    }
+
+    // wide — đủ cột
+    return [
+      nameCol,
+      AppTableColumn<ReaderView>(
+        label: 'Số điện thoại',
+        flex: 2,
+        builder: (r) => Text(r.phone,
+            style: const TextStyle(
+                fontSize: 13, color: Color(0xFF374151))),
+      ),
+      AppTableColumn<ReaderView>(
+        label: 'Hạn thẻ',
+        flex: 2,
+        sortable: true,
+        sortKey: 'expiry',
+        builder: (r) {
+          final expired = r.isMembershipExpired;
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (expired)
+                const Padding(
+                  padding: EdgeInsets.only(right: 4),
+                  child: Icon(Icons.warning_amber_rounded,
+                      size: 13, color: Color(0xFFDC2626)),
+                ),
+              Text(
+                _dateFormat.format(r.membershipExpireAt),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: expired
+                      ? const Color(0xFFDC2626)
+                      : const Color(0xFF6B7280),
+                  fontWeight:
+                      expired ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+      statusCol,
+      AppTableColumn<ReaderView>(
+        label: 'Thao tác',
+        fixedWidth: 166,
+        builder: (r) => _buildRowActions(r),
+      ),
+    ];
+  }
 
   Widget _buildRowActions(ReaderView r) {
     final isSuspended = r.status == ReaderStatus.SUSPENDED;
@@ -418,144 +466,227 @@ class _ReadersPageState extends State<ReadersPage> {
   }
 
   Widget _buildContent() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Header ──────────────────────────────────────────────
-          Row(children: [
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Quản lý độc giả',
-                      style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF111827))),
-                  SizedBox(height: 4),
-                  Text('Danh sách toàn bộ độc giả trong thư viện',
-                      style: TextStyle(
-                          fontSize: 13, color: Color(0xFF9CA3AF))),
-                ],
-              ),
-            ),
-            AppButton(
-              label:     'Thêm độc giả',
-              icon:      Icons.person_add_rounded,
-              onPressed: _openCreate,
-            ),
-          ]),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width     = constraints.maxWidth;
+        final isNarrow  = width < 500;
+        final isCompact = width < 760;
+        final pad       = isNarrow ? 14.0 : isCompact ? 20.0 : 28.0;
 
-          const SizedBox(height: 24),
+        Widget section(Widget child) =>
+            Padding(padding: EdgeInsets.symmetric(horizontal: pad), child: child);
 
-          // ── Stat Cards ──────────────────────────────────────────
-          Row(children: [
-            Expanded(child: StatCard(
-              icon:     Icons.people_outline_rounded,
-              title:    'Tổng độc giả',
-              value:    _total,
-              color:    const Color(0xFF2563EB),
-              subtitle: 'Trong hệ thống',
-            )),
-            const SizedBox(width: 16),
-            Expanded(child: StatCard(
-              icon:     Icons.check_circle_outline_rounded,
-              title:    'Đang hoạt động',
-              value:    _normal,
-              color:    const Color(0xFF16A34A),
-              subtitle: 'Thẻ còn hạn',
-              onTap:    () => _onStatusFilter('NORMAL'),
-            )),
-            const SizedBox(width: 16),
-            Expanded(child: StatCard(
-              icon:     Icons.block_rounded,
-              title:    'Bị khoá',
-              value:    _suspended,
-              color:    const Color(0xFFDC2626),
-              subtitle: 'Cần xử lý',
-              onTap:    () => _onStatusFilter('SUSPENDED'),
-            )),
-            const SizedBox(width: 16),
-            Expanded(child: StatCard(
-              icon:     Icons.card_membership_rounded,
-              title:    'Hết hạn thẻ',
-              value:    _expired,
-              color:    const Color(0xFFD97706),
-              subtitle: 'Cần gia hạn',
-              onTap:    () => _onStatusFilter('expired'),
-            )),
-          ]),
-
-          const SizedBox(height: 24),
-
-          // ── Toolbar ─────────────────────────────────────────────
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+        return SingleChildScrollView(
+          padding: EdgeInsets.symmetric(vertical: pad),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                flex: 3,
-                child: SearchBarWidget(
-                  hintText:    'Tìm theo tên, email, số điện thoại...',
-                  suggestions: _searchSuggestions,
-                  onChanged:   _onSearch,
-                  onSelect:    _onSearch,
+
+              // ── Header ────────────────────────────────────────────
+              section(isNarrow
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Quản lý độc giả',
+                            style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF111827))),
+                        const SizedBox(height: 2),
+                        const Text(
+                            'Danh sách toàn bộ độc giả trong thư viện',
+                            style: TextStyle(
+                                fontSize: 12, color: Color(0xFF9CA3AF))),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: AppButton(
+                            label:     'Thêm độc giả',
+                            icon:      Icons.person_add_rounded,
+                            onPressed: _openCreate,
+                          ),
+                        ),
+                      ],
+                    )
+                  : Row(children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Quản lý độc giả',
+                                style: TextStyle(
+                                    fontSize: isCompact ? 18 : 22,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF111827))),
+                            const SizedBox(height: 4),
+                            const Text(
+                                'Danh sách toàn bộ độc giả trong thư viện',
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFF9CA3AF))),
+                          ],
+                        ),
+                      ),
+                      AppButton(
+                        label:     'Thêm độc giả',
+                        icon:      Icons.person_add_rounded,
+                        onPressed: _openCreate,
+                      ),
+                    ])),
+
+              const SizedBox(height: 20),
+
+              // ── Stat Cards (luôn xếp hàng ngang, giống audit log) ──
+              section(Row(
+                children: [
+                  Expanded(
+                    child: StatCard(
+                      icon: Icons.people_outline_rounded,
+                      title: 'Tổng độc giả',
+                      value: _total,
+                      color: const Color(0xFF2563EB),
+                      subtitle: 'Trong hệ thống',
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: StatCard(
+                      icon: Icons.check_circle_outline_rounded,
+                      title: 'Đang hoạt động',
+                      value: _normal,
+                      color: const Color(0xFF16A34A),
+                      subtitle: 'Thẻ còn hạn',
+                      onTap: () => _onStatusFilter('NORMAL'),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: StatCard(
+                      icon: Icons.block_rounded,
+                      title: 'Bị khoá',
+                      value: _suspended,
+                      color: const Color(0xFFDC2626),
+                      subtitle: 'Cần xử lý',
+                      onTap: () => _onStatusFilter('SUSPENDED'),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: StatCard(
+                      icon: Icons.card_membership_rounded,
+                      title: 'Hết hạn thẻ',
+                      value: _expired,
+                      color: const Color(0xFFD97706),
+                      subtitle: 'Cần gia hạn',
+                      onTap: () => _onStatusFilter('expired'),
+                    ),
+                  ),
+                ],
+              )),
+
+              const SizedBox(height: 20),
+
+              // ── Toolbar ───────────────────────────────────────────
+              section(isNarrow
+                  ? Column(
+                      children: [
+                        SearchBarWidget(
+                          hintText:    'Tìm theo tên, email, số điện thoại...',
+                          suggestions: _searchSuggestions,
+                          onChanged:   _onSearch,
+                          onSelect:    _onSearch,
+                        ),
+                        const SizedBox(height: 8),
+                        Row(children: [
+                          FilterPopup(
+                            label:      'Trạng thái',
+                            selected:   _statusFilter,
+                            searchable: false,
+                            items: const {
+                              'NORMAL':    'Hoạt động',
+                              'SUSPENDED': 'Bị khoá',
+                              'expired':   'Hết hạn thẻ',
+                            },
+                            onChanged: (v) =>
+                                setState(() { _statusFilter = v; _applyFilter(); }),
+                          ),
+                          const Spacer(),
+                          AppIconButton(
+                            icon:      Icons.refresh_rounded,
+                            onPressed: _loadReaders,
+                            tooltip:   'Tải lại',
+                          ),
+                        ]),
+                      ],
+                    )
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: SearchBarWidget(
+                            hintText:    'Tìm theo tên, email, số điện thoại...',
+                            suggestions: _searchSuggestions,
+                            onChanged:   _onSearch,
+                            onSelect:    _onSearch,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        FilterPopup(
+                          label:      'Trạng thái',
+                          selected:   _statusFilter,
+                          searchable: false,
+                          items: const {
+                            'NORMAL':    'Hoạt động',
+                            'SUSPENDED': 'Bị khoá',
+                            'expired':   'Hết hạn thẻ',
+                          },
+                          onChanged: (v) =>
+                              setState(() { _statusFilter = v; _applyFilter(); }),
+                        ),
+                        const SizedBox(width: 8),
+                        AppIconButton(
+                          icon:      Icons.refresh_rounded,
+                          onPressed: _loadReaders,
+                          tooltip:   'Tải lại',
+                        ),
+                      ],
+                    )),
+
+              const SizedBox(height: 6),
+
+              // ── Result count ──────────────────────────────────────
+              Padding(
+                padding: EdgeInsets.only(left: pad + 2, bottom: 8),
+                child: Text(
+                  _filtered.isEmpty
+                      ? 'Không tìm thấy kết quả'
+                      : 'Hiển thị ${_filtered.length} / $_total độc giả',
+                  style: const TextStyle(
+                      fontSize: 12, color: Color(0xFFD1D5DB)),
                 ),
               ),
-              const SizedBox(width: 12),
-              FilterPopup(
-                label:      'Trạng thái',
-                selected:   _statusFilter,
-                searchable: false,
-                items: const {
-                  'NORMAL':    'Hoạt động',
-                  'SUSPENDED': 'Bị khoá',
-                  'expired':   'Hết hạn thẻ',
+
+              // ── Table ─────────────────────────────────────────────
+              section(AppTable<ReaderView>(
+                rows:    _filtered,
+                columns: _buildColumns(width - pad * 2),
+                emptyMessage: _searchText.isNotEmpty
+                    ? 'Không tìm thấy độc giả phù hợp với "$_searchText"'
+                    : 'Chưa có độc giả nào trong hệ thống',
+                cellValue: (r, key) => switch (key) {
+                  'name'   => r.name,
+                  'expiry' => r.membershipExpireAt,
+                  'status' => r.status.index,
+                  _        => '',
                 },
-                onChanged: (v) =>
-                    setState(() { _statusFilter = v; _applyFilter(); }),
-              ),
-              const SizedBox(width: 8),
-              AppIconButton(
-                icon:      Icons.refresh_rounded,
-                onPressed: _loadReaders,
-                tooltip:   'Tải lại',
-              ),
+              )),
+
+              const SizedBox(height: 40),
             ],
           ),
-
-          const SizedBox(height: 6),
-
-          Padding(
-            padding: const EdgeInsets.only(left: 2, bottom: 8),
-            child: Text(
-              _filtered.isEmpty
-                  ? 'Không tìm thấy kết quả'
-                  : 'Hiển thị ${_filtered.length} / $_total độc giả',
-              style: const TextStyle(
-                  fontSize: 12, color: Color(0xFFD1D5DB)),
-            ),
-          ),
-
-          // ── Table ────────────────────────────────────────────────
-          AppTable<ReaderView>(
-            rows:    _filtered,
-            columns: _columns,
-            emptyMessage: _searchText.isNotEmpty
-                ? 'Không tìm thấy độc giả phù hợp với "$_searchText"'
-                : 'Chưa có độc giả nào trong hệ thống',
-            cellValue: (r, key) => switch (key) {
-              'name'   => r.name,
-              'expiry' => r.membershipExpireAt,
-              'status' => r.status.index,
-              _        => '',
-            },
-          ),
-
-          const SizedBox(height: 40),
-        ],
-      ),
+        );
+      },
     );
   }
 }

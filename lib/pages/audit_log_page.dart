@@ -408,6 +408,12 @@ class _DateRangeButtonState extends State<_DateRangeButton>
     _scrollPosition?.removeListener(_onScroll);
     _scrollPosition = Scrollable.maybeOf(context)?.position;
     _scrollPosition?.addListener(_onScroll);
+    // Khi layout thay đổi (split screen, resize window), cập nhật lại vị trí overlay
+    if (_overlay != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _overlay?.markNeedsBuild();
+      });
+    }
   }
 
   void _onScroll() {
@@ -439,13 +445,19 @@ class _DateRangeButtonState extends State<_DateRangeButton>
       return;
     }
 
-    final box = _key.currentContext!.findRenderObject() as RenderBox;
-    final pos = box.localToGlobal(Offset.zero);
-    final size = box.size;
-
     _overlay = OverlayEntry(builder: (overlayCtx) {
-      final popupRight =
-          MediaQuery.sizeOf(context).width - (pos.dx + size.width);
+      // Tính lại vị trí mỗi lần build → đúng khi split screen / resize
+      final ro = _key.currentContext?.findRenderObject();
+      if (ro == null || !ro.attached) return const SizedBox.shrink();
+      final box = ro as RenderBox;
+      final pos = box.localToGlobal(Offset.zero);
+      final size = box.size;
+
+      const popupWidth = 300.0;
+      final screenWidth = MediaQuery.sizeOf(overlayCtx).width;
+      // Clamp để popup không bị tràn ra ngoài màn hình khi chia đôi
+      final popupRight = (screenWidth - (pos.dx + size.width))
+          .clamp(8.0, screenWidth - popupWidth - 8.0);
       final popupTop = pos.dy + size.height + 6;
 
       return Stack(children: [
@@ -463,7 +475,7 @@ class _DateRangeButtonState extends State<_DateRangeButton>
         Positioned(
           right: popupRight,
           top: popupTop,
-          width: 300,
+          width: popupWidth,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () {}, // hấp thụ tap trong popup

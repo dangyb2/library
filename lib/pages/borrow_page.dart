@@ -142,50 +142,83 @@ class _BorrowPageState extends State<BorrowPage>
       backgroundColor: const Color(0xFFF9FAFB),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadData,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(28),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildPageHeader(),
-                    const SizedBox(height: 24),
-                    _buildStatCards(),
-                    const SizedBox(height: 28),
-                    _buildTableSection(),
-                  ],
-                ),
-              ),
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final width     = constraints.maxWidth;
+                final isNarrow  = width < 500;
+                final isCompact = width < 760;
+                final pad       = isNarrow ? 14.0 : isCompact ? 20.0 : 28.0;
+
+                Widget section(Widget child) => Padding(
+                    padding: EdgeInsets.symmetric(horizontal: pad),
+                    child: child);
+
+                return RefreshIndicator(
+                  onRefresh: _loadData,
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(vertical: pad),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        section(_buildPageHeader(isNarrow, isCompact)),
+                        const SizedBox(height: 20),
+                        section(_buildStatCards(isNarrow, isCompact)), // luôn xếp hàng ngang
+                        const SizedBox(height: 20),
+                        _buildTableSection(
+                            width: width, pad: pad, section: section),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
     );
   }
 
   // ── PAGE HEADER ────────────────────────────
 
-  Widget _buildPageHeader() {
+  Widget _buildPageHeader(bool isNarrow, bool isCompact) {
+    if (isNarrow) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Quản lý Mượn / Trả',
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF111827))),
+          const SizedBox(height: 2),
+          Text('Tổng ${_allBorrows.length} phiếu mượn',
+              style: const TextStyle(
+                  fontSize: 12, color: Color(0xFF9CA3AF))),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: AppButton(
+              label: 'Tạo phiếu mượn',
+              icon: Icons.add_rounded,
+              onPressed: () => _openBorrowModal(),
+            ),
+          ),
+        ],
+      );
+    }
     return Row(
       children: [
-        // Title block
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Quản lý Mượn / Trả',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF111827),
-              ),
-            ),
+            Text('Quản lý Mượn / Trả',
+                style: TextStyle(
+                    fontSize: isCompact ? 18 : 22,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF111827))),
             const SizedBox(height: 4),
-            Text(
-              'Tổng ${_allBorrows.length} phiếu mượn',
-              style: const TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
-            ),
+            Text('Tổng ${_allBorrows.length} phiếu mượn',
+                style: const TextStyle(
+                    fontSize: 13, color: Color(0xFF9CA3AF))),
           ],
         ),
-
         const Spacer(),
         AppButton(
           label: 'Tạo phiếu mượn',
@@ -196,265 +229,399 @@ class _BorrowPageState extends State<BorrowPage>
     );
   }
 
-  // ── STAT CARDS ─────────────────────────────
+  // ── STAT CARDS (responsive: grid 2 cột / 3 cột / row) ──
 
-  Widget _buildStatCards() {
-    return Row(
-      children: [
-        Expanded(
-          child: StatCard(
-            icon: Icons.swap_horiz_rounded,
-            title: 'Đang mượn',
-            value: _countBorrowed,
-            color: const Color(0xFF2563EB),
-            subtitle: 'phiếu đang hoạt động',
-            onTap: () => setState(() {
-              _statusFilter = _statusFilter == BorrowStatus.BORROWED
-                  ? null
-                  : BorrowStatus.BORROWED;
-              _applyFilter();
-            }),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: StatCard(
-            icon: Icons.warning_amber_rounded,
-            title: 'Quá hạn',
-            value: _countOverdue,
-            color: const Color(0xFFDC2626),
-            subtitle: 'cần xử lý ngay',
-            onTap: () => setState(() {
-              _statusFilter = _statusFilter == BorrowStatus.OVERDUE
-                  ? null
-                  : BorrowStatus.OVERDUE;
-              _applyFilter();
-            }),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: StatCard(
-            icon: Icons.check_circle_outline_rounded,
-            title: 'Đã trả',
-            value: _countReturned,
-            color: const Color(0xFF16A34A),
-            subtitle: 'lượt trả thành công',
-            onTap: () => setState(() {
-              _statusFilter = _statusFilter == BorrowStatus.RETURNED
-                  ? null
-                  : BorrowStatus.RETURNED;
-              _applyFilter();
-            }),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: StatCard(
-            icon: Icons.report_gmailerrorred_outlined,
-            title: 'Báo mất',
-            value: _countLost,
-            color: const Color(0xFFD97706),
-            subtitle: 'sách bị mất',
-            onTap: () => setState(() {
-              _statusFilter = _statusFilter == BorrowStatus.LOST
-                  ? null
-                  : BorrowStatus.LOST;
-              _applyFilter();
-            }),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: StatCard(
-            icon: Icons.cancel_outlined,
-            title: 'Đã huỷ',
-            value: _countCancelled,
-            color: const Color(0xFF6B7280),
-            subtitle: 'phiếu bị huỷ',
-            onTap: () => setState(() {
-              _statusFilter = _statusFilter == BorrowStatus.CANCELLED
-                  ? null
-                  : BorrowStatus.CANCELLED;
-              _applyFilter();
-            }),
-          ),
-        ),
-      ],
-    );
+  Widget _buildStatCards(bool isNarrow, bool isCompact) {
+    final cards = <Widget>[
+      StatCard(
+        icon: Icons.swap_horiz_rounded,
+        title: 'Đang mượn',
+        value: _countBorrowed,
+        color: const Color(0xFF2563EB),
+        subtitle: 'phiếu đang hoạt động',
+        onTap: () => setState(() {
+          _statusFilter = _statusFilter == BorrowStatus.BORROWED
+              ? null : BorrowStatus.BORROWED;
+          _applyFilter();
+        }),
+      ),
+      StatCard(
+        icon: Icons.warning_amber_rounded,
+        title: 'Quá hạn',
+        value: _countOverdue,
+        color: const Color(0xFFDC2626),
+        subtitle: 'cần xử lý ngay',
+        onTap: () => setState(() {
+          _statusFilter = _statusFilter == BorrowStatus.OVERDUE
+              ? null : BorrowStatus.OVERDUE;
+          _applyFilter();
+        }),
+      ),
+      StatCard(
+        icon: Icons.check_circle_outline_rounded,
+        title: 'Đã trả',
+        value: _countReturned,
+        color: const Color(0xFF16A34A),
+        subtitle: 'lượt trả thành công',
+        onTap: () => setState(() {
+          _statusFilter = _statusFilter == BorrowStatus.RETURNED
+              ? null : BorrowStatus.RETURNED;
+          _applyFilter();
+        }),
+      ),
+      StatCard(
+        icon: Icons.report_gmailerrorred_outlined,
+        title: 'Báo mất',
+        value: _countLost,
+        color: const Color(0xFFD97706),
+        subtitle: 'sách bị mất',
+        onTap: () => setState(() {
+          _statusFilter = _statusFilter == BorrowStatus.LOST
+              ? null : BorrowStatus.LOST;
+          _applyFilter();
+        }),
+      ),
+      StatCard(
+        icon: Icons.cancel_outlined,
+        title: 'Đã huỷ',
+        value: _countCancelled,
+        color: const Color(0xFF6B7280),
+        subtitle: 'phiếu bị huỷ',
+        onTap: () => setState(() {
+          _statusFilter = _statusFilter == BorrowStatus.CANCELLED
+              ? null : BorrowStatus.CANCELLED;
+          _applyFilter();
+        }),
+      ),
+    ];
+
+    if (isNarrow) {
+      return _buildStatsGrid(cards, crossAxisCount: 2, gap: 10);
+    } else if (isCompact) {
+      return _buildStatsGrid(cards, crossAxisCount: 3, gap: 12);
+    } else {
+      return Row(children: cards.map((card) => Expanded(child: card)).toList());
+    }
+  }
+
+  Widget _buildStatsGrid(List<Widget> cards, {required int crossAxisCount, double gap = 12}) {
+    final rows = <Widget>[];
+    for (var i = 0; i < cards.length; i += crossAxisCount) {
+      final chunk = cards.skip(i).take(crossAxisCount).toList();
+      rows.add(Row(
+        children: [
+          for (var j = 0; j < chunk.length; j++) ...[
+            if (j > 0) SizedBox(width: gap),
+            Expanded(child: chunk[j]),
+          ],
+          for (var k = chunk.length; k < crossAxisCount; k++) ...[
+            SizedBox(width: gap),
+            const Expanded(child: SizedBox()),
+          ],
+        ],
+      ));
+      if (i + crossAxisCount < cards.length) {
+        rows.add(SizedBox(height: gap));
+      }
+    }
+    return Column(children: rows);
   }
 
   // ── TABLE SECTION ──────────────────────────
 
-  Widget _buildTableSection() {
+  Widget _buildTableSection({
+    required double width,
+    required double pad,
+    required Widget Function(Widget) section,
+  }) {
+    // AppTable padding nội bộ 40px; max icons trong row = 5 → 166px
+    final tableWidth = width - pad * 2 - 40;
+    final isNarrow  = tableWidth < 400;
+    final isCompact = tableWidth < 620;
+
+    // Cột actions với fixedWidth đúng
+    // max 5 icon × 30px + 4 gap × 4px = 166px
+    final actionsCol = AppTableColumn<BorrowSummaryView>(
+      label: isNarrow ? '' : 'Thao tác',
+      fixedWidth: isNarrow ? 30 : 166,
+      builder: (row) => isNarrow
+          ? GestureDetector(
+              onTap: () => _openDetailModal(row.borrowId),
+              child: const Icon(Icons.more_vert_rounded,
+                  size: 18, color: Color(0xFF6B7280)),
+            )
+          : _buildRowActions(row),
+    );
+
+    List<AppTableColumn<BorrowSummaryView>> buildColumns() {
+      if (isNarrow) {
+        return [
+          AppTableColumn(
+            label: 'Tên Sách / Độc giả',
+            flex: 3,
+            sortable: true,
+            sortKey: 'bookTitle',
+            builder: (row) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(row.bookTitle,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF111827)),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1),
+                const SizedBox(height: 2),
+                Text(row.readerName,
+                    style: const TextStyle(
+                        fontSize: 11, color: Color(0xFF9CA3AF)),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1),
+              ],
+            ),
+          ),
+          AppTableColumn(
+            label: 'Trạng thái',
+            flex: 2,
+            sortable: true,
+            sortKey: 'status',
+            builder: (row) => _BorrowStatusBadge(row.status),
+          ),
+          actionsCol,
+        ];
+      }
+
+      if (isCompact) {
+        return [
+          AppTableColumn(
+            label: 'Tên Sách / Độc giả',
+            flex: 3,
+            sortable: true,
+            sortKey: 'bookTitle',
+            builder: (row) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(row.bookTitle,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF111827)),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1),
+                const SizedBox(height: 2),
+                Text(row.readerName,
+                    style: const TextStyle(
+                        fontSize: 11, color: Color(0xFF9CA3AF)),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1),
+              ],
+            ),
+          ),
+          AppTableColumn(
+            label: _isReturnedOrLostFilter ? 'Ngày trả' : 'Hạn trả',
+            flex: 2,
+            sortable: true,
+            sortKey: _isReturnedOrLostFilter ? 'returnDate' : 'dueDate',
+            builder: (row) => _buildDateCell(row),
+          ),
+          AppTableColumn(
+            label: 'Trạng thái',
+            flex: 2,
+            sortable: true,
+            sortKey: 'status',
+            builder: (row) => _BorrowStatusBadge(row.status),
+          ),
+          actionsCol,
+        ];
+      }
+
+      // wide — đủ cột
+      return [
+        AppTableColumn(
+          label: 'Tên Sách',
+          flex: 2,
+          sortable: true,
+          sortKey: 'bookTitle',
+          builder: (row) => Text(row.bookTitle,
+              style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF111827)),
+              overflow: TextOverflow.ellipsis),
+        ),
+        AppTableColumn(
+          label: 'Tên độc giả',
+          flex: 2,
+          sortable: true,
+          sortKey: 'readerName',
+          builder: (row) => Text(row.readerName,
+              style: const TextStyle(
+                  fontSize: 13, color: Color(0xFF6B7280)),
+              overflow: TextOverflow.ellipsis),
+        ),
+        AppTableColumn(
+          label: 'Ngày mượn',
+          flex: 2,
+          sortable: true,
+          sortKey: 'borrowDate',
+          builder: (row) => Text(_dateFormat.format(row.borrowDate),
+              style: const TextStyle(
+                  fontSize: 13, color: Color(0xFF6B7280))),
+        ),
+        AppTableColumn(
+          label: _isReturnedOrLostFilter ? 'Ngày trả' : 'Hạn trả',
+          flex: 2,
+          sortable: true,
+          sortKey: _isReturnedOrLostFilter ? 'returnDate' : 'dueDate',
+          builder: (row) => _buildDateCell(row),
+        ),
+        AppTableColumn(
+          label: 'Trạng thái',
+          flex: 2,
+          sortable: true,
+          sortKey: 'status',
+          builder: (row) => _BorrowStatusBadge(row.status),
+        ),
+        actionsCol,
+      ];
+    }
+
     return Column(
       children: [
         // Toolbar
-        Row(
-          children: [
-            Expanded(
-              flex: 3,
-              child: SearchBarWidget(
-                hintText: 'Tìm theo tên sách, tên độc giả...',
-                suggestions:
-                    _allBorrows.map((b) => b.bookTitle).toList() +
-                    _allBorrows.map((b) => b.readerName).toList(),
-                onChanged: (v) { _search = v; _applyFilter(); },
-                onSelect:  (v) { _search = v; _applyFilter(); },
-              ),
-            ),
-            const SizedBox(width: 12),
-            FilterPopup(
-              label: 'Trạng thái',
-              selected: _statusFilter?.name,
-              searchable: false,
-              items: const {
-                'BORROWED':  'Đang mượn',
-                'RETURNED':  'Đã trả',
-                'OVERDUE':   'Quá hạn',
-                'LOST':      'Mất sách',
-                'CANCELLED': 'Đã huỷ',
-              },
-              onChanged: (v) {
-                setState(() => _statusFilter = v == null
-                    ? null
-                    : BorrowStatusX.fromString(v));
-                _applyFilter();
-              },
-            ),
-            const SizedBox(width: 8),
-            AppIconButton(
-              icon: Icons.refresh_rounded,
-              onPressed: _loadData,
-              tooltip: 'Làm mới',
-            ),
-          ],
-        ),
+        section(isNarrow
+            ? Column(children: [
+                SearchBarWidget(
+                  hintText: 'Tìm theo tên sách, tên độc giả...',
+                  suggestions:
+                      _allBorrows.map((b) => b.bookTitle).toList() +
+                      _allBorrows.map((b) => b.readerName).toList(),
+                  onChanged: (v) { _search = v; _applyFilter(); },
+                  onSelect:  (v) { _search = v; _applyFilter(); },
+                ),
+                const SizedBox(height: 8),
+                Row(children: [
+                  FilterPopup(
+                    label: 'Trạng thái',
+                    selected: _statusFilter?.name,
+                    searchable: false,
+                    items: const {
+                      'BORROWED':  'Đang mượn',
+                      'RETURNED':  'Đã trả',
+                      'OVERDUE':   'Quá hạn',
+                      'LOST':      'Mất sách',
+                      'CANCELLED': 'Đã huỷ',
+                    },
+                    onChanged: (v) {
+                      setState(() => _statusFilter = v == null
+                          ? null : BorrowStatusX.fromString(v));
+                      _applyFilter();
+                    },
+                  ),
+                  const Spacer(),
+                  AppIconButton(
+                    icon: Icons.refresh_rounded,
+                    onPressed: _loadData,
+                    tooltip: 'Làm mới',
+                  ),
+                ]),
+              ])
+            : Row(children: [
+                Expanded(
+                  flex: 3,
+                  child: SearchBarWidget(
+                    hintText: 'Tìm theo tên sách, tên độc giả...',
+                    suggestions:
+                        _allBorrows.map((b) => b.bookTitle).toList() +
+                        _allBorrows.map((b) => b.readerName).toList(),
+                    onChanged: (v) { _search = v; _applyFilter(); },
+                    onSelect:  (v) { _search = v; _applyFilter(); },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                FilterPopup(
+                  label: 'Trạng thái',
+                  selected: _statusFilter?.name,
+                  searchable: false,
+                  items: const {
+                    'BORROWED':  'Đang mượn',
+                    'RETURNED':  'Đã trả',
+                    'OVERDUE':   'Quá hạn',
+                    'LOST':      'Mất sách',
+                    'CANCELLED': 'Đã huỷ',
+                  },
+                  onChanged: (v) {
+                    setState(() => _statusFilter = v == null
+                        ? null : BorrowStatusX.fromString(v));
+                    _applyFilter();
+                  },
+                ),
+                const SizedBox(width: 8),
+                AppIconButton(
+                  icon: Icons.refresh_rounded,
+                  onPressed: _loadData,
+                  tooltip: 'Làm mới',
+                ),
+              ])),
         const SizedBox(height: 16),
-        AppTable<BorrowSummaryView>(
+        section(AppTable<BorrowSummaryView>(
           rows: _filtered,
           emptyMessage: 'Không có phiếu mượn nào',
+          columns: buildColumns(),
           cellValue: (row, key) {
             switch (key) {
-              case 'bookTitle':
-                return row.bookTitle;
-              case 'readerName':
-                return row.readerName;
-              case 'borrowDate':
-                return row.borrowDate;
-              case 'dueDate':
-                return row.dueDate;
-              case 'returnDate':
-                return row.returnDate ?? DateTime(0);
-              case 'status':
-                return row.status.index;
-              default:
-                return '';
+              case 'bookTitle':   return row.bookTitle;
+              case 'readerName':  return row.readerName;
+              case 'borrowDate':  return row.borrowDate;
+              case 'dueDate':     return row.dueDate;
+              case 'returnDate':  return row.returnDate ?? DateTime(0);
+              case 'status':      return row.status.index;
+              default:            return '';
             }
           },
-          columns: [
-            AppTableColumn(
-              label: 'Tên Sách',
-              flex: 2,
-              sortable: true,
-              sortKey: 'bookTitle',
-              builder: (row) => Text(
-                row.bookTitle,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF111827),
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            AppTableColumn(
-              label: 'Tên độc giả',
-              flex: 2,
-              sortable: true,
-              sortKey: 'readerName',
-              builder: (row) => Text(
-                row.readerName,
-                style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            AppTableColumn(
-              label: 'Ngày mượn',
-              flex: 2,
-              sortable: true,
-              sortKey: 'borrowDate',
-              builder: (row) => Text(
-                _dateFormat.format(row.borrowDate),
-                style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
-              ),
-            ),
-            AppTableColumn(
-              label: _isReturnedOrLostFilter ? 'Ngày trả' : 'Hạn trả',
-              flex: 2,
-              sortable: true,
-              sortKey: _isReturnedOrLostFilter ? 'returnDate' : 'dueDate',
-              builder: (row) {
-                if (_isReturnedOrLostFilter) {
-                  // Hiển thị ngày trả
-                  final returnDate = row.returnDate;
-                  return Text(
-                    returnDate != null
-                        ? _dateFormat.format(returnDate)
-                        : '—',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: returnDate != null
-                          ? const Color(0xFF16A34A)
-                          : const Color(0xFF9CA3AF),
-                      fontWeight: returnDate != null
-                          ? FontWeight.w600
-                          : FontWeight.w400,
-                    ),
-                  );
-                }
-                // Hiển thị hạn trả (mặc định)
-                final overdue = row.status == BorrowStatus.OVERDUE;
-                return Row(
-                  children: [
-                    if (overdue)
-                      const Padding(
-                        padding: EdgeInsets.only(right: 4),
-                        child: Icon(Icons.warning_amber_rounded,
-                            size: 13, color: Color(0xFFDC2626)),
-                      ),
-                    Text(
-                      _dateFormat.format(row.dueDate),
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: overdue
-                            ? const Color(0xFFDC2626)
-                            : const Color(0xFF6B7280),
-                        fontWeight: overdue
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-            AppTableColumn(
-              label: 'Trạng thái',
-              flex: 2,
-              sortable: true,
-              sortKey: 'status',
-              builder: (row) => _BorrowStatusBadge(row.status),
-            ),
-            AppTableColumn(
-              label: 'Thao tác',
-              fixedWidth: 190,
-              builder: (row) => _buildRowActions(row),
-            ),
-          ],
-        ),
+        )),
+        const SizedBox(height: 40),
       ],
     );
+  }
+
+  // Helper: ô ngày trả / hạn trả
+  Widget _buildDateCell(BorrowSummaryView row) {
+    if (_isReturnedOrLostFilter) {
+      final returnDate = row.returnDate;
+      return Text(
+        returnDate != null ? _dateFormat.format(returnDate) : '—',
+        style: TextStyle(
+          fontSize: 13,
+          color: returnDate != null
+              ? const Color(0xFF16A34A)
+              : const Color(0xFF9CA3AF),
+          fontWeight: returnDate != null
+              ? FontWeight.w600
+              : FontWeight.w400,
+        ),
+      );
+    }
+    final overdue = row.status == BorrowStatus.OVERDUE;
+    return Row(children: [
+      if (overdue)
+        const Padding(
+          padding: EdgeInsets.only(right: 4),
+          child: Icon(Icons.warning_amber_rounded,
+              size: 13, color: Color(0xFFDC2626)),
+        ),
+      Text(_dateFormat.format(row.dueDate),
+          style: TextStyle(
+            fontSize: 13,
+            color: overdue
+                ? const Color(0xFFDC2626)
+                : const Color(0xFF6B7280),
+            fontWeight:
+                overdue ? FontWeight.w600 : FontWeight.w400,
+          )),
+    ]);
   }
 
   // ── ROW ACTIONS ────────────────────────────

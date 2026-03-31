@@ -214,92 +214,94 @@ class _BooksPageState extends State<BooksPage> {
   //  Table columns
   // ─────────────────────────────────────────────────────────────
 
-  List<AppTableColumn<BookSummary>> get _columns => [
-        AppTableColumn(
-          label: 'Tiêu đề / Tác giả',
-          flex: 3,
-          sortable: true,
-          sortKey: 'title',
-          builder: (b) => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(b.title,
-                  style: const TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF111827)),
-                  overflow: TextOverflow.ellipsis),
-              const SizedBox(height: 2),
-              Text(b.author,
-                  style: const TextStyle(
-                      fontSize: 12, color: Color(0xFF9CA3AF)),
-                  overflow: TextOverflow.ellipsis),
-            ],
-          ),
-        ),
-        AppTableColumn(
-          label: 'Thể loại',
-          flex: 2,
-          builder: (b) => Wrap(
-            spacing: 4,
-            runSpacing: 4,
-            children: [
-              ...b.genres.take(2).map((g) =>
-                    _GenreChip(label: BookGenres.all[g] ?? g)),
-              if (b.genres.length > 2)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 7, vertical: 3),
-                  decoration: BoxDecoration(
-                      color: const Color(0xFFF3F4F6),
-                      borderRadius: BorderRadius.circular(20)),
-                  child: Text('+${b.genres.length - 2}',
-                      style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF6B7280))),
-                ),
-            ],
-          ),
-        ),
-        AppTableColumn(
-          label: 'Năm',
-          flex: 1,
-          sortable: true,
-          sortKey: 'year',
-          builder: (b) => Text('${b.publicationYear}',
+  // AppTable có padding ngang nội bộ 20px mỗi bên = 40px tổng.
+  // tableWidth = width thực tế bên trong bảng (sau khi trừ padding).
+  // TableActions: 4 icon × 30px + 3 gap × 4px = 132px.
+  List<AppTableColumn<BookSummary>> _buildColumns(double width) {
+    // width truyền vào là width của AppTable widget (= screen width - section padding*2).
+    // Trừ thêm 40px padding nội bộ để biết không gian thực tế của các cột.
+    final tableWidth = width - 40;
+    final isNarrow  = tableWidth < 420;
+    final isCompact = tableWidth < 680;
+
+    final titleCol = AppTableColumn<BookSummary>(
+      label: 'Tiêu đề / Tác giả',
+      flex: 3,
+      sortable: true,
+      sortKey: 'title',
+      builder: (b) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(b.title,
+              style: TextStyle(
+                  fontSize: isNarrow ? 13.0 : 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF111827)),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1),
+          const SizedBox(height: 2),
+          Text(b.author,
+              style: TextStyle(
+                  fontSize: isNarrow ? 11.0 : 12.0,
+                  color: const Color(0xFF9CA3AF)),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1),
+        ],
+      ),
+    );
+
+    final stockCol = AppTableColumn<BookSummary>(
+      label: 'Tồn kho',
+      flex: 1,
+      sortable: true,
+      sortKey: 'stock',
+      builder: (b) => RichText(
+        text: TextSpan(children: [
+          TextSpan(
+              text: '${b.availableStock}',
               style: const TextStyle(
-                  fontSize: 13, color: Color(0xFF6B7280))),
-        ),
-        AppTableColumn(
-          label: 'Tồn kho',
-          flex: 1,
-          sortable: true,
-          sortKey: 'stock',
-          builder: (b) => RichText(
-            text: TextSpan(children: [
-              TextSpan(
-                  text: '${b.availableStock}',
-                  style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF111827))),
-              TextSpan(
-                  text: ' / ${b.totalStock}',
-                  style: const TextStyle(
-                      fontSize: 13, color: Color(0xFFD1D5DB))),
-            ]),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF111827))),
+          TextSpan(
+              text: '/${b.totalStock}',
+              style: const TextStyle(
+                  fontSize: 12, color: Color(0xFFD1D5DB))),
+        ]),
+      ),
+    );
+
+    final statusCol = AppTableColumn<BookSummary>(
+      label: 'Trạng thái',
+      flex: 1,
+      builder: (b) => _StatusBadge(status: _bookStatus(b)),
+    );
+
+    if (isNarrow) {
+      return [
+        titleCol,
+        stockCol,
+        AppTableColumn<BookSummary>(
+          label: '',
+          fixedWidth: 30,
+          builder: (b) => GestureDetector(
+            onTap: () => _goToDetail(b),
+            child: const Icon(Icons.more_vert_rounded,
+                size: 18, color: Color(0xFF6B7280)),
           ),
         ),
-        AppTableColumn(
-          label: 'Trạng thái',
-          flex: 1,
-          builder: (b) => _StatusBadge(status: _bookStatus(b)),
-        ),
-        AppTableColumn(
+      ];
+    }
+
+    if (isCompact) {
+      return [
+        titleCol,
+        stockCol,
+        statusCol,
+        AppTableColumn<BookSummary>(
           label: 'Thao tác',
-          fixedWidth: 160,
+          fixedWidth: 132,
           builder: (b) => TableActions(
             onView:   () => _goToDetail(b),
             onEdit:   () => _goToEdit(b),
@@ -308,6 +310,78 @@ class _BooksPageState extends State<BooksPage> {
           ),
         ),
       ];
+    }
+
+    // wide — đủ cột
+    return [
+      titleCol,
+      AppTableColumn<BookSummary>(
+        label: 'Thể loại',
+        flex: 2,
+        builder: (b) => Wrap(
+          spacing: 4,
+          runSpacing: 4,
+          children: [
+            ...b.genres.take(2).map((g) =>
+                  _GenreChip(label: BookGenres.all[g] ?? g)),
+            if (b.genres.length > 2)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                    color: const Color(0xFFF3F4F6),
+                    borderRadius: BorderRadius.circular(20)),
+                child: Text('+${b.genres.length - 2}',
+                    style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF6B7280))),
+              ),
+          ],
+        ),
+      ),
+      AppTableColumn<BookSummary>(
+        label: 'Năm',
+        flex: 1,
+        sortable: true,
+        sortKey: 'year',
+        builder: (b) => Text('${b.publicationYear}',
+            style: const TextStyle(
+                fontSize: 13, color: Color(0xFF6B7280))),
+      ),
+      AppTableColumn<BookSummary>(
+        label: 'Tồn kho',
+        flex: 1,
+        sortable: true,
+        sortKey: 'stock',
+        builder: (b) => RichText(
+          text: TextSpan(children: [
+            TextSpan(
+                text: '${b.availableStock}',
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF111827))),
+            TextSpan(
+                text: ' / ${b.totalStock}',
+                style: const TextStyle(
+                    fontSize: 13, color: Color(0xFFD1D5DB))),
+          ]),
+        ),
+      ),
+      statusCol,
+      AppTableColumn<BookSummary>(
+        label: 'Thao tác',
+        fixedWidth: 132,
+        builder: (b) => TableActions(
+          onView:   () => _goToDetail(b),
+          onEdit:   () => _goToEdit(b),
+          onDelete: () => _deleteBook(b),
+          onStock:  () => _goToStock(b),
+        ),
+      ),
+    ];
+  }
 
   // ─────────────────────────────────────────────────────────────
   //  Build
@@ -347,155 +421,303 @@ class _BooksPageState extends State<BooksPage> {
   }
 
   Widget _buildContent() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Row(children: [
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Quản lý sách',
-                      style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF111827))),
-                  SizedBox(height: 4),
-                  Text('Danh sách toàn bộ đầu sách trong thư viện',
-                      style: TextStyle(
-                          fontSize: 13, color: Color(0xFF9CA3AF))),
-                ],
-              ),
-            ),
-            AppButton(
-                label: 'Thêm sách',
-                icon: Icons.add_rounded,
-                onPressed: _goToCreate),
-          ]),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width     = constraints.maxWidth;
+        final isNarrow  = width < 500;
+        final isCompact = width < 760;
+        final pad       = isNarrow ? 14.0 : isCompact ? 20.0 : 28.0;
 
-          const SizedBox(height: 24),
+        Widget section(Widget child) =>
+            Padding(padding: EdgeInsets.symmetric(horizontal: pad), child: child);
 
-          // Stats
-          Row(children: [
-            Expanded(child: StatCard(
-              icon: Icons.menu_book_rounded,
-              title: 'Tổng đầu sách',
-              value: _totalTitles,
-              color: const Color(0xFF2563EB),
-              subtitle: 'Trong thư viện',
-            )),
-            const SizedBox(width: 16),
-            Expanded(child: StatCard(
-              icon: Icons.library_books_rounded,
-              title: 'Tổng bản sách',
-              value: _totalStock,
-              color: const Color(0xFF7C3AED),
-              subtitle: 'Tất cả bản in',
-            )),
-            const SizedBox(width: 16),
-            Expanded(child: StatCard(
-              icon: Icons.check_circle_outline_rounded,
-              title: 'Sách khả dụng',
-              value: _totalAvail,
-              color: const Color(0xFF16A34A),
-              subtitle: 'Sẵn sàng cho mượn',
-            )),
-            const SizedBox(width: 16),
-            Expanded(child: StatCard(
-              icon: Icons.swap_horiz_rounded,
-              title: 'Đã cho mượn',
-              value: _totalLent,
-              color: const Color(0xFFF59E0B),
-              subtitle: 'Đang ngoài thư viện',
-            )),
-            const SizedBox(width: 16),
-            Expanded(child: StatCard(
-              icon: Icons.do_not_disturb_alt_rounded,
-              title: 'Hết hàng',
-              value: _outOfStock,
-              color: const Color(0xFFEF4444),
-              subtitle: 'Cần nhập thêm',
-              onTap: () => _onStatusFilter('out'),
-            )),
-          ]),
-
-          const SizedBox(height: 24),
-
-          // Toolbar
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+        return SingleChildScrollView(
+          padding: EdgeInsets.symmetric(vertical: pad),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                flex: 3,
-                child: SearchBarWidget(
-                  hintText: 'Tìm theo tiêu đề hoặc tác giả...',
-                  suggestions: _searchSuggestions,
-                  onChanged: _onSearch,
-                  onSelect: _onSearch,
+
+              // ── Header ──────────────────────────────────────────
+              section(isNarrow
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Quản lý sách',
+                            style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF111827))),
+                        const SizedBox(height: 2),
+                        const Text(
+                            'Danh sách toàn bộ đầu sách trong thư viện',
+                            style: TextStyle(
+                                fontSize: 12, color: Color(0xFF9CA3AF))),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: AppButton(
+                              label: 'Thêm sách',
+                              icon: Icons.add_rounded,
+                              onPressed: _goToCreate),
+                        ),
+                      ],
+                    )
+                  : Row(children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Quản lý sách',
+                                style: TextStyle(
+                                    fontSize: isCompact ? 18 : 22,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF111827))),
+                            const SizedBox(height: 4),
+                            const Text(
+                                'Danh sách toàn bộ đầu sách trong thư viện',
+                                style: TextStyle(
+                                    fontSize: 13, color: Color(0xFF9CA3AF))),
+                          ],
+                        ),
+                      ),
+                      AppButton(
+                          label: 'Thêm sách',
+                          icon: Icons.add_rounded,
+                          onPressed: _goToCreate),
+                    ])),
+
+              const SizedBox(height: 20),
+
+              // ── Stats ────────────────────────────────────────────
+              section(isNarrow
+                  ? _buildStatsGrid(crossAxisCount: 2, gap: 10)
+                  : isCompact
+                      ? _buildStatsGrid(crossAxisCount: 3, gap: 12)
+                      : Row(children: [
+                          Expanded(child: StatCard(
+                            icon: Icons.menu_book_rounded,
+                            title: 'Tổng đầu sách',
+                            value: _totalTitles,
+                            color: const Color(0xFF2563EB),
+                            subtitle: 'Trong thư viện',
+                          )),
+                          const SizedBox(width: 16),
+                          Expanded(child: StatCard(
+                            icon: Icons.library_books_rounded,
+                            title: 'Tổng bản sách',
+                            value: _totalStock,
+                            color: const Color(0xFF7C3AED),
+                            subtitle: 'Tất cả bản in',
+                          )),
+                          const SizedBox(width: 16),
+                          Expanded(child: StatCard(
+                            icon: Icons.check_circle_outline_rounded,
+                            title: 'Sách khả dụng',
+                            value: _totalAvail,
+                            color: const Color(0xFF16A34A),
+                            subtitle: 'Sẵn sàng cho mượn',
+                          )),
+                          const SizedBox(width: 16),
+                          Expanded(child: StatCard(
+                            icon: Icons.swap_horiz_rounded,
+                            title: 'Đã cho mượn',
+                            value: _totalLent,
+                            color: const Color(0xFFF59E0B),
+                            subtitle: 'Đang ngoài thư viện',
+                          )),
+                          const SizedBox(width: 16),
+                          Expanded(child: StatCard(
+                            icon: Icons.do_not_disturb_alt_rounded,
+                            title: 'Hết hàng',
+                            value: _outOfStock,
+                            color: const Color(0xFFEF4444),
+                            subtitle: 'Cần nhập thêm',
+                            onTap: () => _onStatusFilter('out'),
+                          )),
+                        ])),
+
+              const SizedBox(height: 20),
+
+              // ── Toolbar ──────────────────────────────────────────
+              section(isNarrow
+                  ? Column(
+                      children: [
+                        SearchBarWidget(
+                          hintText: 'Tìm theo tiêu đề hoặc tác giả...',
+                          suggestions: _searchSuggestions,
+                          onChanged: _onSearch,
+                          onSelect: _onSearch,
+                        ),
+                        const SizedBox(height: 8),
+                        Row(children: [
+                          FilterPopup(
+                            label: 'Trạng thái',
+                            selected: _activeStatus,
+                            searchable: false,
+                            items: const {
+                              'ok':  'Còn sách',
+                              'low': 'Sắp hết',
+                              'out': 'Hết hàng',
+                            },
+                            onChanged: _onStatusFilter,
+                          ),
+                          const SizedBox(width: 8),
+                          FilterPopup(
+                            label: 'Thể loại',
+                            selected: _activeGenre,
+                            searchable: true,
+                            items: BookGenres.all,
+                            onChanged: _onGenreFilter,
+                          ),
+                          const Spacer(),
+                          AppIconButton(
+                            icon: Icons.refresh_rounded,
+                            onPressed: _loadBooks,
+                            tooltip: 'Tải lại',
+                          ),
+                        ]),
+                      ],
+                    )
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: SearchBarWidget(
+                            hintText: 'Tìm theo tiêu đề hoặc tác giả...',
+                            suggestions: _searchSuggestions,
+                            onChanged: _onSearch,
+                            onSelect: _onSearch,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        FilterPopup(
+                          label: 'Trạng thái',
+                          selected: _activeStatus,
+                          searchable: false,
+                          items: const {
+                            'ok':  'Còn sách',
+                            'low': 'Sắp hết',
+                            'out': 'Hết hàng',
+                          },
+                          onChanged: _onStatusFilter,
+                        ),
+                        const SizedBox(width: 10),
+                        FilterPopup(
+                          label: 'Thể loại',
+                          selected: _activeGenre,
+                          searchable: true,
+                          items: BookGenres.all,
+                          onChanged: _onGenreFilter,
+                        ),
+                        const SizedBox(width: 8),
+                        AppIconButton(
+                          icon: Icons.refresh_rounded,
+                          onPressed: _loadBooks,
+                          tooltip: 'Tải lại',
+                        ),
+                      ],
+                    )),
+
+              const SizedBox(height: 6),
+
+              // ── Result count ─────────────────────────────────────
+              Padding(
+                padding: EdgeInsets.only(left: pad + 2, bottom: 8),
+                child: Text(
+                  _filtered.isEmpty
+                      ? 'Không tìm thấy kết quả'
+                      : 'Hiển thị ${_filtered.length} / $_totalTitles đầu sách',
+                  style: const TextStyle(
+                      fontSize: 12, color: Color(0xFFD1D5DB)),
                 ),
               ),
-              const SizedBox(width: 12),
-              FilterPopup(
-                label: 'Trạng thái',
-                selected: _activeStatus,
-                searchable: false,
-                items: const {
-                  'ok':  'Còn sách',
-                  'low': 'Sắp hết',
-                  'out': 'Hết hàng',
+
+              // ── Table ───────────────────────────────────────────
+              section(AppTable<BookSummary>(
+                rows: _filtered,
+                columns: _buildColumns(width - pad * 2),
+                cellValue: (b, key) => switch (key) {
+                  'title' => b.title,
+                  'year'  => b.publicationYear,
+                  'stock' => b.availableStock,
+                  _       => '',
                 },
-                onChanged: _onStatusFilter,
-              ),
-              const SizedBox(width: 10),
-              FilterPopup(
-                label: 'Thể loại',
-                selected: _activeGenre,
-                searchable: true,
-                items: BookGenres.all,
-                onChanged: _onGenreFilter,
-              ),
-              const SizedBox(width: 8),
-              AppIconButton(
-                icon: Icons.refresh_rounded,
-                onPressed: _loadBooks,
-                tooltip: 'Tải lại',
-              ),
+                emptyMessage: _searchText.isNotEmpty
+                    ? 'Không tìm thấy sách phù hợp với "$_searchText"'
+                    : 'Chưa có sách nào trong thư viện',
+              )),
+
+              const SizedBox(height: 40),
             ],
           ),
+        );
+      },
+    );
+  }
 
-          const SizedBox(height: 6),
-
-          Padding(
-            padding: const EdgeInsets.only(left: 2, bottom: 8),
-            child: Text(
-              _filtered.isEmpty
-                  ? 'Không tìm thấy kết quả'
-                  : 'Hiển thị ${_filtered.length} / $_totalTitles đầu sách',
-              style: const TextStyle(
-                  fontSize: 12, color: Color(0xFFD1D5DB)),
-            ),
-          ),
-
-          AppTable<BookSummary>(
-            rows: _filtered,
-            columns: _columns,
-            cellValue: (b, key) => switch (key) {
-              'title' => b.title,
-              'year'  => b.publicationYear,
-              'stock' => b.availableStock,
-              _       => '',
-            },
-            emptyMessage: _searchText.isNotEmpty
-                ? 'Không tìm thấy sách phù hợp với "$_searchText"'
-                : 'Chưa có sách nào trong thư viện',
-          ),
-
-          const SizedBox(height: 40),
-        ],
+  Widget _buildStatsGrid({required int crossAxisCount, double gap = 12}) {
+    final stats = <Widget>[
+      StatCard(
+        icon: Icons.menu_book_rounded,
+        title: 'Tổng đầu sách',
+        value: _totalTitles,
+        color: const Color(0xFF2563EB),
+        subtitle: 'Trong thư viện',
       ),
+      StatCard(
+        icon: Icons.library_books_rounded,
+        title: 'Tổng bản sách',
+        value: _totalStock,
+        color: const Color(0xFF7C3AED),
+        subtitle: 'Tất cả bản in',
+      ),
+      StatCard(
+        icon: Icons.check_circle_outline_rounded,
+        title: 'Sách khả dụng',
+        value: _totalAvail,
+        color: const Color(0xFF16A34A),
+        subtitle: 'Sẵn sàng cho mượn',
+      ),
+      StatCard(
+        icon: Icons.swap_horiz_rounded,
+        title: 'Đã cho mượn',
+        value: _totalLent,
+        color: const Color(0xFFF59E0B),
+        subtitle: 'Đang ngoài thư viện',
+      ),
+      StatCard(
+        icon: Icons.do_not_disturb_alt_rounded,
+        title: 'Hết hàng',
+        value: _outOfStock,
+        color: const Color(0xFFEF4444),
+        subtitle: 'Cần nhập thêm',
+        onTap: () => _onStatusFilter('out'),
+      ),
+    ];
+
+    final rows = <Widget>[];
+    for (var i = 0; i < stats.length; i += crossAxisCount) {
+      final chunk = stats.skip(i).take(crossAxisCount).toList();
+      rows.add(Row(
+        children: [
+          for (var j = 0; j < chunk.length; j++) ...[
+            if (j > 0) SizedBox(width: gap),
+            Expanded(child: chunk[j]),
+          ],
+          for (var k = chunk.length; k < crossAxisCount; k++) ...[
+            SizedBox(width: gap),
+            const Expanded(child: SizedBox()),
+          ],
+        ],
+      ));
+      if (i + crossAxisCount < stats.length) SizedBox(height: gap);
+    }
+    return Column(
+      children: rows
+          .expand((r) => [r, SizedBox(height: gap)])
+          .take(rows.length * 2 - 1)
+          .toList(),
     );
   }
 }
